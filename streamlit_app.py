@@ -47,13 +47,33 @@ if not st.session_state.autenticado:
 
 else:
     # SISTEMA APÓS LOGIN
-    # --- SISTEMA APÓS LOGIN ---
-
+   
     user = st.session_state.user_data
     
     # Barra Lateral
     st.sidebar.title(f"Olá, {user['nome']}")
     st.sidebar.info(f"Nível: {user['funcao'].upper()}")
+
+    # Na Sidebar, para todos os usuários
+    with st.sidebar.expander("⚙️ Minha Conta"):
+        with st.form("form_troca_senha_propria"):
+            st.write("Alterar Senha")
+            senha_atual = st.text_input("Senha Atual", type="password")
+            nova_senha = st.text_input("Nova Senha", type="password")
+            confirmar = st.form_submit_button("Atualizar Senha")
+            
+            if confirmar:
+                # 1. Verificar se a senha atual está correta
+                if auth.verificar_senha(senha_atual, user['senha_hash']):
+                    if nova_senha:
+                        # 2. Gerar novo hash e salvar
+                        novo_hash = auth.gerar_hash_senha(nova_senha)
+                        db.atualizar_senha_usuario(supabase, user['id'], novo_hash)
+                        st.success("Senha alterada! Relogue para aplicar.")
+                    else:
+                        st.error("Digite uma nova senha.")
+                else:
+                    st.error("Senha atual incorreta.")
     
     # Definindo as opções de menu com base no cargo
     if user['funcao'] == 'admin':
