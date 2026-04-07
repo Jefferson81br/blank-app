@@ -48,7 +48,7 @@ if not st.session_state.autenticado:
 else:
     # SISTEMA APÓS LOGIN
     # --- SISTEMA APÓS LOGIN ---
-else:
+
     user = st.session_state.user_data
     
     # Barra Lateral
