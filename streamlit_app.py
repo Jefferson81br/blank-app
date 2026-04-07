@@ -47,66 +47,71 @@ if not st.session_state.autenticado:
 
 else:
     # SISTEMA APÓS LOGIN
+    # --- SISTEMA APÓS LOGIN ---
+else:
     user = st.session_state.user_data
     
-    # Barra Lateral Comum
+    # Barra Lateral
     st.sidebar.title(f"Olá, {user['nome']}")
     st.sidebar.info(f"Nível: {user['funcao'].upper()}")
+    
+    # Definindo as opções de menu com base no cargo
+    if user['funcao'] == 'admin':
+        menu_opcoes = ["📊 Dashboard", "👥 Consultar Usuários", "➕ Adicionar Usuário"]
+    elif user['funcao'] == 'proprietario':
+        menu_opcoes = ["📊 Dashboard"]
+    elif user['funcao'] == 'gerente':
+        menu_opcoes = ["📝 Lançamento Diário"]
+    else:
+        menu_opcoes = ["📊 Dashboard"]
+
+    escolha = st.sidebar.radio("Navegação", menu_opcoes)
     
     if st.sidebar.button("Sair"):
         st.session_state.autenticado = False
         st.session_state.user_data = None
         st.rerun()
 
-    # Roteamento por Nível de Acesso
-    if user['funcao'] == 'admin':
-        st.subheader("🆕 Cadastro de Novo Usuário")
+    # --- LÓGICA DE TELAS ---
+
+    # 1. TELA DE DASHBOARD (Admin e Proprietário)
+    if escolha == "📊 Dashboard":
+        st.title("📊 Dashboard Executivo")
+        st.write("Bem-vindo ao centro de controle das 8 farmácias.")
+        # Futuramente incluiremos os gráficos aqui
+
+    # 2. TELA DE ADICIONAR USUÁRIO (A que acabamos de criar)
+    elif escolha == "➕ Adicionar Usuário":
+        st.title("➕ Cadastrar Novo Usuário")
+        # Coloque aqui o código do formulário de cadastro que testamos
+        # (Lembre-se de usar auth.gerar_hash_senha)
+
+    # 3. TELA DE CONSULTAR USUÁRIOS (Excluir e Mudar Senha)
+    elif escolha == "👥 Consultar Usuários":
+        st.title("👥 Gestão de Usuários")
         
-        with st.form("form_cadastro_usuario", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                nome = st.text_input("Nome")
-                email = st.text_input("E-mail")
-                novo_usuario = st.text_input("Login (Username)")
-            with col2:
-                sobrenome = st.text_input("Sobrenome")
-                # Dropdown para as 8 lojas
-                loja = st.selectbox("Unidade/Loja", [1, 2, 3, 4, 5, 6, 7, 8, "Nenhuma (Admin/Proprietário)"])
-                nova_senha = st.text_input("Senha Inicial", type="password")
-            
-            funcao = st.selectbox("Nível de Acesso", ["gerente", "proprietario", "financeiro", "admin"])
-            
-            botao_cadastrar = st.form_submit_button("Finalizar Cadastro")
-            
-            if botao_cadastrar:
-                if nome and novo_usuario and nova_senha and email:
-                    # 1. Gerar o Hash da senha antes de enviar para o banco
-                    senha_protegida = auth.gerar_hash_senha(nova_senha)
+        usuarios_res = db.buscar_todos_usuarios(supabase) # Vamos criar essa função
+        
+        if usuarios_res and usuarios_res.data:
+            for u in usuarios_res.data:
+                with st.expander(f"{u['nome']} {u['sobrenome'] or ''} (@{u['username']})"):
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    with col1:
+                        st.write(f"**E-mail:** {u['email']}")
+                        st.write(f"**Função:** {u['funcao']}")
+                        st.write(f"**Loja:** {u['unidade_id'] or 'N/A'}")
                     
-                    # 2. Preparar os dados
-                    dados_usuario = {
-                        "nome": nome,
-                        "sobrenome": sobrenome,
-                        "email": email,
-                        "username": novo_usuario,
-                        "senha_hash": senha_protegida, # Senha já criptografada
-                        "funcao": funcao,
-                        "unidade_id": loja if isinstance(loja, int) else None
-                    }
-                    
-                    # 3. Enviar para o Supabase (usando nossa função do database_utils)
-                    try:
-                        db.cadastrar_usuario(supabase, dados_usuario)
-                        st.success(f"Usuário {novo_usuario} cadastrado com segurança!")
-                    except Exception as e:
-                        st.error(f"Erro ao cadastrar no banco: {e}")
-                else:
-                    st.warning("Por favor, preencha todos os campos obrigatórios.")
-        
-    elif user['funcao'] == 'gerente':
-        st.header(f"🏪 Lançamento Diário - Unidade {user['unidade_id']}")
-        # Aqui você chamaria: gerente_view.render(supabase, user['unidade_id'])
-        
-    elif user['funcao'] == 'proprietario':
-        st.header("📊 Dashboard Executivo")
-        # Visão de BI para o dono das 8 lojas
+                    with col2:
+                        if st.button("Nova Senha", key=f"pass_{u['id']}"):
+                            # Lógica para resetar senha (veremos a seguir)
+                            st.info("Função em desenvolvimento")
+                            
+                    with col3:
+                        if st.button("Excluir", key=f"del_{u['id']}"):
+                            # Chamada para deletar no banco
+                            try:
+                                supabase.table("usuarios").delete().eq("id", u['id']).execute()
+                                st.success("Usuário removido!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro: {e}")
