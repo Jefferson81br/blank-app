@@ -33,8 +33,15 @@ if not st.session_state.autenticado:
                     st.session_state.autenticado = True
                     st.session_state.user_data = user
                     st.rerun()
+                    
                 else:
-                    st.error("Senha incorreta.")
+                    # Caso a senha no banco ainda seja texto puro (como o seu admin atual)
+                    if pass_input == user['senha_hash']:
+                       st.session_state.autenticado = True
+                       st.session_state.user_data = user
+                       st.rerun()
+                    else:
+                       st.error("Senha incorreta.")
             else:
                 st.error("Usuário não encontrado.")
 
