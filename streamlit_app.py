@@ -85,7 +85,8 @@ else:
                     
                     # 2. Preparar os dados
                     dados_usuario = {
-                        "nome": f"{nome} {sobrenome}",
+                        "nome": nome,
+                        "sobrenome": sobrenome,
                         "email": email,
                         "username": novo_usuario,
                         "senha_hash": senha_protegida, # Senha já criptografada
