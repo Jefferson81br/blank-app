@@ -53,9 +53,47 @@ else:
 
     # Roteamento por Nível de Acesso
     if user['funcao'] == 'admin':
-        st.header("🛡️ Painel do Administrador")
-        # Aqui você pode chamar uma função de outro arquivo: admin_view.render(supabase)
-        st.write("Bem-vindo ao controle central. Aqui você gerencia usuários e lojas.")
+        st.subheader("🆕 Cadastro de Novo Usuário")
+        
+        with st.form("form_cadastro_usuario", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                nome = st.text_input("Nome")
+                email = st.text_input("E-mail")
+                novo_usuario = st.text_input("Login (Username)")
+            with col2:
+                sobrenome = st.text_input("Sobrenome")
+                # Dropdown para as 8 lojas
+                loja = st.selectbox("Unidade/Loja", [1, 2, 3, 4, 5, 6, 7, 8, "Nenhuma (Admin/Proprietário)"])
+                nova_senha = st.text_input("Senha Inicial", type="password")
+            
+            funcao = st.selectbox("Nível de Acesso", ["gerente", "proprietario", "financeiro", "admin"])
+            
+            botao_cadastrar = st.form_submit_button("Finalizar Cadastro")
+            
+            if botao_cadastrar:
+                if nome and novo_usuario and nova_senha and email:
+                    # 1. Gerar o Hash da senha antes de enviar para o banco
+                    senha_protegida = auth.gerar_hash_senha(nova_senha)
+                    
+                    # 2. Preparar os dados
+                    dados_usuario = {
+                        "nome": f"{nome} {sobrenome}",
+                        "email": email,
+                        "username": novo_usuario,
+                        "senha_hash": senha_protegida, # Senha já criptografada
+                        "funcao": funcao,
+                        "unidade_id": loja if isinstance(loja, int) else None
+                    }
+                    
+                    # 3. Enviar para o Supabase (usando nossa função do database_utils)
+                    try:
+                        db.cadastrar_usuario(supabase, dados_usuario)
+                        st.success(f"Usuário {novo_usuario} cadastrado com segurança!")
+                    except Exception as e:
+                        st.error(f"Erro ao cadastrar no banco: {e}")
+                else:
+                    st.warning("Por favor, preencha todos os campos obrigatórios.")
         
     elif user['funcao'] == 'gerente':
         st.header(f"🏪 Lançamento Diário - Unidade {user['unidade_id']}")
