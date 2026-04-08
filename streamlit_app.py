@@ -171,7 +171,7 @@ else:
             if st.form_submit_button("Finalizar Cadastro", use_container_width=True):
                if nome and novo_usuario and nova_senha_cad:
                   hash_cad = auth.gerar_hash_senha(nova_senha_cad)
-                
+                  
                   # MAPEAMENTO CORRIGIDO:
                   dados = {
                       "nome": nome, 
@@ -181,13 +181,13 @@ else:
                       "senha_hash": hash_cad,
                       "funcao": funcao_cad, 
                       "unidade_id": id_da_loja_final  # Usando a variável nova que criamos
-                }
-                
-                   db.cadastrar_usuario(supabase, dados)
-                   st.success(f"Usuário {novo_usuario} criado com sucesso!")
-                   st.rerun()
-            else:
-                st.warning("Preencha os campos obrigatórios.")
+                } 
+                   
+                  db.cadastrar_usuario(supabase, dados)
+                  st.success(f"Usuário {novo_usuario} criado com sucesso!")
+                  st.rerun()
+               else:
+                  st.warning("Preencha os campos obrigatórios.")
 
     elif escolha == "👥 Consultar Usuários":
         st.title("👥 Gestão de Usuários")
