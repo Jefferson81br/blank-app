@@ -2,7 +2,13 @@ import streamlit as st
 from supabase import create_client, Client
 import database_utils as db  # Importa suas funções de banco
 import auth_utils as auth    # Importa sua lógica de senha
-import lancamento_view  # Importa o novo arquivo que você criou
+
+# IMPORTAÇÃO DOS MÓDULOS DE TELAS
+import dashboard_view
+import lancamento_view
+import usuarios_view
+import lojas_view
+
 from datetime import date, timedelta
 import pandas as pd
 
@@ -107,134 +113,20 @@ else:
     if st.sidebar.button("🚪 Sair", use_container_width=True):
         st.session_state.autenticado = False; st.session_state.user_data = None; st.rerun()
 
-    # --- RENDERIZAÇÃO DE TELAS ---
+    # --- RENDERIZAÇÃO DE TELAS (O MAESTRO) ---
     escolha = st.session_state.pagina_ativa
 
-    # 1. TELA DASHBOARD (CORRIGIDA COM TODOS OS ITENS)
     if escolha == "📊 Dashboard":
-        st.title("📊 Painel de Performance")
-        lojas_res = db.buscar_lojas(supabase)
-        mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
-        
-        if user['funcao'] in ['admin', 'proprietario']:
-            lojas_sel_nomes = st.multiselect("Unidades:", options=list(mapa_lojas.keys()), default=list(mapa_lojas.keys())[:1])
-            lista_ids = [mapa_lojas[n] for n in lojas_sel_nomes]
-        else:
-            if not user['unidade_id']: st.stop()
-            lista_ids = [user['unidade_id']]
+        dashboard_view.renderizar_tela(supabase, user)
 
-        if not lista_ids: st.stop()
-
-        c1, c2 = st.columns(2)
-        periodo = c1.selectbox("Período:", ["Dia", "Semana", "Mês"])
-        hoje = date.today()
-        if periodo == "Dia": d_ini = c2.date_input("Data:", hoje, max_value=hoje); d_fim = d_ini
-        elif periodo == "Semana": d_ini = hoje - timedelta(days=hoje.weekday()); d_fim = hoje
-        else: d_ini = hoje.replace(day=1); d_fim = hoje
-
-        res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids, str(d_ini), str(d_fim))
-        
-        if res and res.data:
-            df_geral = pd.DataFrame(res.data)
-            id_para_nome = {v: k for k, v in mapa_lojas.items()}
-            cols_dash = st.columns(len(lista_ids))
-            
-            for idx, l_id in enumerate(lista_ids):
-                with cols_dash[idx]:
-                    st.subheader(f"🏢 {id_para_nome.get(l_id)}")
-                    df_l = df_geral[df_geral['loja_id'] == l_id]
-                    if not df_l.empty:
-                        # Totais Acumulados do Período
-                        t_s = df_l[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
-                        t_c = df_l[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
-                        t_d = df_l['despesa'].sum()
-                        t_a = t_c - t_s - (t_d * 2)
-                        
-                        st.metric("Venda (Sis)", f"R$ {t_s:,.2f}")
-                        st.metric("Acerto", f"R$ {t_a:,.2f}", delta=f"{t_a:,.2f}")
-
-                        if periodo == "Dia":
-                            d = df_l.iloc[0]
-                            # MAPEAMENTO COMPLETO DA PLANILHA
-                            dados_completos = [
-                                {"ITEM": "CARTÃO", "SIS": d['sis_cartao'], "CONF": d['conf_cartao']},
-                                {"ITEM": "CREDIÁRIO", "SIS": d['sis_crediario'], "CONF": d['conf_crediario']},
-                                {"ITEM": "DINHEIRO", "SIS": d['sis_dinheiro'], "CONF": d['conf_dinheiro']},
-                                {"ITEM": "IFOOD", "SIS": d['sis_ifood'], "CONF": d['conf_ifood']},
-                                {"ITEM": "PIX/TRANSF", "SIS": d['sis_pix'], "CONF": d['conf_pix']},
-                                {"ITEM": "DESPESA", "SIS": 0.0, "CONF": d['despesa']}
-                            ]
-                            df_tab = pd.DataFrame(dados_completos)
-                            df_tab['ACERTO'] = df_tab['CONF'] - df_tab['SIS']
-                            # Ajuste sinal despesa
-                            df_tab.loc[df_tab['ITEM'] == 'DESPESA', 'ACERTO'] = -d['despesa']
-
-                            st.table(df_tab.style.format({"SIS": "R$ {:.2f}", "CONF": "R$ {:.2f}", "ACERTO": "R$ {:.2f}"}))
-                            
-                            if d['urls_prints']:
-                                for url_p in d['urls_prints']:
-                                    st.markdown(f'<a href="{url_p}" target="_blank"><img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px; margin-bottom:5px;"></a>', unsafe_allow_html=True)
-                    else: st.caption("Sem dados.")
-        else: st.info("Nenhum lançamento encontrado.")
-
-    # 2. TELA LANÇAMENTO (MANTIDA CORRETA)
     elif escolha == "📝 Lançamento Diário":
-         lancamento_view.renderizar_tela(supabase, user)
+        lancamento_view.renderizar_tela(supabase, user)
 
-    # 3. TELA ADICIONAR USUÁRIO
-    elif escolha == "➕ Adicionar Usuário":
-        st.title("➕ Cadastrar Novo Usuário")
-        res_lojas = db.buscar_lojas(supabase)
-        dict_lojas = {l['nome']: l['id'] for l in res_lojas.data} if res_lojas.data else {}
-        with st.form("form_cadastro_usuario", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            nome_c = c1.text_input("Nome")
-            sobrenome_c = c2.text_input("Sobrenome")
-            email_c = c1.text_input("E-mail")
-            loja_sel = c2.selectbox("Unidade", ["Nenhuma"] + list(dict_lojas.keys()))
-            user_c = c1.text_input("Login")
-            pass_c = c2.text_input("Senha Inicial", type="password")
-            func_c = st.selectbox("Nível", ["gerente", "proprietario", "financeiro", "admin"])
-            if st.form_submit_button("Finalizar Cadastro", use_container_width=True):
-                if nome_c and user_c and pass_c:
-                    db.cadastrar_usuario(supabase, {"nome": nome_c, "sobrenome": sobrenome_c, "email": email_c, "username": user_c, "senha_hash": auth.gerar_hash_senha(pass_c), "funcao": func_c, "unidade_id": dict_lojas.get(loja_sel)})
-                    st.success("Cadastrado!")
-                else: st.warning("Preencha tudo.")
-
-    # 4. TELA CONSULTAR USUÁRIOS
     elif escolha == "👥 Consultar Usuários":
-        st.title("👥 Gestão de Usuários")
-        usuarios = db.buscar_todos_usuarios(supabase)
-        lojas = db.buscar_lojas(supabase)
-        mapa_lojas = {l['id']: l['nome'] for l in lojas.data} if lojas.data else {}
-        if usuarios and usuarios.data:
-            for u in usuarios.data:
-                nome_loja = mapa_lojas.get(u['unidade_id'], "Admin/Geral")
-                with st.expander(f"{u['nome']} - {nome_loja} (@{u['username']})"):
-                    c1, c2, c3 = st.columns([2,1,1])
-                    c1.write(f"E-mail: {u['email']} | Função: {u['funcao']}")
-                    if c2.popover("🔑 Resetar").button("Confirmar Reset", key=f"rs_{u['id']}"):
-                        st.info("Reset realizado.")
-                    if c3.button("Excluir", key=f"ex_{u['id']}", use_container_width=True):
-                        supabase.table("usuarios").delete().eq("id", u['id']).execute(); st.rerun()
+        usuarios_view.gerenciar_usuarios(supabase, user)
 
-    # 5. TELA CONSULTAR LOJAS
+    elif escolha == "➕ Adicionar Usuário":
+        usuarios_view.adicionar_usuario(supabase)
+
     elif escolha == "🏢 Consultar Lojas":
-        st.title("🏢 Gestão de Unidades")
-        t1, t2 = st.tabs(["Lista", "➕ Nova"])
-        with t1:
-            lojas_lista = db.buscar_lojas(supabase)
-            if lojas_lista.data:
-                for l in lojas_lista.data:
-                    with st.expander(f"{l['nome']} ({l['marca']})"):
-                        with st.form(f"f_{l['id']}"):
-                            n = st.text_input("Nome", value=l['nome'])
-                            m = st.text_input("Marca", value=l['marca'])
-                            e = st.text_input("Endereço", value=l['endereco'])
-                            if st.form_submit_button("Atualizar"):
-                                db.atualizar_loja(supabase, l['id'], {"nome":n, "marca":m, "endereco":e}); st.rerun()
-        with t2:
-            with st.form("n_loja"):
-                nl, ml, el = st.text_input("Nome"), st.text_input("Marca"), st.text_input("Endereço")
-                if st.form_submit_button("Salvar"):
-                    db.cadastrar_loja(supabase, {"nome":nl, "marca":ml, "endereco":el}); st.rerun()
+        lojas_view.gerenciar_lojas(supabase)
