@@ -20,7 +20,7 @@ if 'pagina_ativa' not in st.session_state:
 
 if not st.session_state.autenticado:
     # TELA DE LOGIN
-    st.title("💊 Gestão de Farmácias - Grupo")
+    st.title("💊 Farma Gestor 1.0")
     
     with st.container():
         user_input = st.text_input("Usuário")
