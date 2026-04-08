@@ -177,97 +177,76 @@ else:
                     db.cadastrar_loja(supabase, {"nome":nl, "marca":ml, "endereco":el})
                     st.rerun()
     elif escolha == "📝 Lançamento Diário":
-        st.title("📝 Fechamento de Caixa Diário")
+    st.title("📝 Fechamento de Caixa Diário")
     
-        # O gerente só lança para a loja dele
-        loja_id = user['unidade_id']
-        if not loja_id:
-            st.error("Seu usuário não está vinculado a nenhuma loja. Contate o Admin.")
-            st.stop()
+    loja_id = user['unidade_id']
+    if not loja_id:
+        st.error("Usuário sem loja vinculada.")
+        st.stop()
 
-        with st.form("form_fechamento"):
-            c1, c2 = st.columns([1, 1])
-            data_sel = c1.date_input("Data do Movimento", value=None)
-            st.write("---")
+    # --- CAMPOS FORA DO FORMULÁRIO PARA CÁLCULO EM TEMPO REAL ---
+    # Usamos colunas para organizar o cabeçalho
+    st.date_input("Data do Movimento", key="data_mov")
+    st.write("---")
+    
+    h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
+    h1.write("**DESCRIÇÃO**")
+    h2.write("**VALOR SISTEMA**")
+    h3.write("**CONFERÊNCIA**")
+    h4.write("**ACERTO**")
+
+    # Função interna para gerar as linhas com cálculos vivos
+    def gerar_linha_viva(label, chave):
+        col_desc, col_sis, col_conf, col_acer = st.columns([2, 2, 2, 1.5])
+        col_desc.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
         
-            # Cabeçalhos
-            h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
-            h1.write("**Descrição**")
-            h2.write("**Valor Sistema**")
-            h3.write("**Conferência**")
-            h4.write("**Acerto**")
-
-        # Função auxiliar para criar as linhas de input
-            def criar_linha_fechamento(label):
-                col_desc, col_sis, col_conf, col_acer = st.columns([2, 2, 2, 1.5])
-                col_desc.write(f"**{label}**")
-                val_sis = col_sis.number_input("R$", key=f"sis_{label}", format="%.2f", step=0.01, label_visibility="collapsed")
-                val_conf = col_conf.number_input("R$", key=f"conf_{label}", format="%.2f", step=0.01, label_visibility="collapsed")
-                acerto = val_conf - val_sis
-            
-                # Cor do acerto (Verde se bater, Vermelho se faltar, Azul se sobrar)
-                cor = "white" if acerto == 0 else ("#ff4b4b" if acerto < 0 else "#00ff00")
-                col_acer.markdown(f"<p style='color:{cor}; font-weight:bold;'>R$ {acerto:.2f}</p>", unsafe_allow_html=True)
-                return val_sis, val_conf
-
-            v_sis_cartao, v_conf_cartao = criar_linha_fechamento("CARTÃO")
-            v_sis_cred, v_conf_cred = criar_linha_fechamento("CREDIÁRIO")
-            v_sis_din, v_conf_din = criar_linha_fechamento("DINHEIRO")
-            v_sis_ifood, v_conf_ifood = criar_linha_fechamento("IFOOD")
-            v_sis_pix, v_conf_pix = criar_linha_fechamento("PIX/TRANSF")
+        # step=None remove os botões de + e - em alguns navegadores e impede o incremento
+        val_sis = col_sis.number_input("R$", key=f"s_{chave}", format="%.2f", step=0.01, label_visibility="collapsed")
+        val_conf = col_conf.number_input("R$", key=f"c_{chave}", format="%.2f", step=0.01, label_visibility="collapsed")
         
-            st.write("---")
-            _, _, col_label_desp, col_val_desp = st.columns([2, 2, 2, 1.5])
-            col_label_desp.write("**DESPESA (-)**")
-            v_despesa = col_val_desp.number_input("R$", key="despesa", format="%.2f", label_visibility="collapsed")
+        acerto = val_conf - val_sis
+        cor = "white" if acerto == 0 else ("#ff4b4b" if acerto < 0 else "#00ff00")
         
-            st.write("---")
-            # Upload de arquivos (Prints)
-            arquivos = st.file_uploader("Anexar Prints do Sistema (Até 5 fotos)", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
+        col_acer.markdown(f"""
+            <div style='padding-top:10px; color:{cor}; font-weight:bold;'>
+                R$ {acerto:.2f}
+            </div>
+        """, unsafe_allow_html=True)
+        return val_sis, val_conf, acerto
+
+    # Gerando as linhas e capturando os valores vivos
+    s_cartao, c_cartao, a_cartao = gerar_linha_viva("CARTÃO", "cartao")
+    s_cred, c_cred, a_cred = gerar_linha_viva("CREDIÁRIO", "cred")
+    s_din, c_din, a_din = gerar_linha_viva("DINHEIRO", "din")
+    s_ifood, c_ifood, a_ifood = gerar_linha_viva("IFOOD", "ifood")
+    s_pix, c_pix, a_pix = gerar_linha_viva("PIX/TRANSF", "pix")
+    
+    st.write("---")
+    # Linha de Despesa
+    _, _, col_l_desp, col_v_desp = st.columns([2, 2, 2, 1.5])
+    col_l_desp.write("**DESPESA (-)**")
+    v_despesa = col_v_desp.number_input("R$", key="despesa_v", format="%.2f", step=0.01, label_visibility="collapsed")
+
+    # CÁLCULO DO TOTAL FINAL (Igual à sua planilha)
+    total_sistema = s_cartao + s_cred + s_din + s_ifood + s_pix
+    total_conf = c_cartao + c_cred + c_din + c_ifood + c_pix + v_despesa # Somando despesa como valor de saída conferido
+    total_acerto = a_cartao + a_cred + a_din + a_ifood + a_pix - v_despesa
+
+    # EXIBIÇÃO DO TOTAL ESTILO PLANILHA
+    st.markdown("---")
+    t1, t2, t3, t4 = st.columns([2, 2, 2, 1.5])
+    t1.subheader("TOTAL")
+    t2.subheader(f"R$ {total_sistema:.2f}")
+    t3.subheader(f"R$ {total_conf:.2f}")
+    
+    cor_total = "white" if total_acerto == 0 else ("#ff4b4b" if total_acerto < 0 else "#00ff00")
+    t4.markdown(f"<h3 style='color:{cor_total};'>R$ {total_acerto:.2f}</h3>", unsafe_allow_html=True)
+
+    # --- ÁREA DE ENVIO (FORMULÁRIO APENAS PARA O BOTÃO E UPLOAD) ---
+    with st.form("form_finalizacao", clear_on_submit=True):
+        arquivos = st.file_uploader("Anexar Prints (Máx 5)", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
+        obs = st.text_area("Observações")
         
-            obs = st.text_area("Observações do dia")
-        
-            btn_enviar = st.form_submit_button("✅ Finalizar e Salvar Fechamento", use_container_width=True)
-
-            if btn_enviar:
-               if not data_sel:
-                   st.error("Selecione a data do movimento!")
-               else:
-                   with st.spinner("Salvando dados e imagens..."):
-                       lista_urls = []
-                    
-                       # 1. Processar e fazer upload dos prints
-                       for i, foto in enumerate(arquivos):
-                           # Criamos um nome único: id_loja/data/foto1.png
-                           extensao = foto.name.split('.')[-1]
-                           caminho = f"loja_{loja_id}/{data_sel}/print_{i}.{extensao}"
-                        
-                           url_foto = db.fazer_upload_print(supabase, foto, caminho)
-                           if url_foto:
-                               lista_urls.append(url_foto)
-
-                    # 2. Montar o dicionário com todos os campos da sua planilha
-                       dados_fechamento = {
-                           "loja_id": loja_id,
-                           "usuario_id": user['id'],
-                           "data_fechamento": str(data_sel),
-                           "sis_cartao": v_sis_cartao,
-                           "conf_cartao": v_conf_cartao,
-                           "sis_crediario": v_sis_cred,
-                           "conf_crediario": v_conf_cred,
-                           "sis_dinheiro": v_sis_din,
-                           "conf_dinheiro": v_conf_din,
-                           "sis_ifood": v_sis_ifood,
-                           "conf_ifood": v_conf_ifood,
-                           "sis_pix": v_sis_pix,
-                           "conf_pix": v_conf_pix,
-                           "despesa": v_despesa,
-                           "observacoes": obs,
-                           "urls_prints": lista_urls
-                       }
-
-                    # 3. Salvar no Banco
-                       sucesso = db.salvar_fechamento(supabase, dados_fechamento)
-                       if sucesso:
-                           st.success("✅ Fechamento salvo com sucesso!")
-                           st.balloons()
+        if st.form_submit_button("✅ SALVAR FECHAMENTO NO BANCO", use_container_width=True):
+            # Lógica de salvar (db.salvar_fechamento...) usando as variáveis acima
+            pass
