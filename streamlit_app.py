@@ -69,7 +69,8 @@ if not st.session_state.autenticado:
                     st.error("Usuário não encontrado.")
 else:
     user = st.session_state.user_data
-    
+    if not user: st.rerun()
+
     # --- SIDEBAR NAVEGAÇÃO ---
     st.sidebar.title(f"Olá, {user['nome']}")
     st.sidebar.info(f"Nível: {user['funcao'].upper()}")
@@ -98,79 +99,77 @@ else:
 
     if escolha == "📊 Dashboard":
         st.title("📊 Painel de Performance")
-        loja_id = user['unidade_id']
         
-        if not loja_id and user['funcao'] != 'admin':
-            st.warning("Usuário sem loja vinculada.")
+        # 1. BUSCA DE LOJAS PARA FILTRO
+        lojas_res = db.buscar_lojas(supabase)
+        mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
+        
+        if user['funcao'] in ['admin', 'proprietario']:
+            lojas_sel_nomes = st.multiselect(
+                "Unidades para visualizar:", 
+                options=list(mapa_lojas.keys()),
+                default=list(mapa_lojas.keys())[:1]
+            )
+            lista_ids = [mapa_lojas[n] for n in lojas_sel_nomes]
         else:
-            c1, c2 = st.columns(2)
-            periodo = c1.selectbox("Período:", ["Dia", "Semana", "Mês"])
-            hoje = date.today()
+            if not user['unidade_id']:
+                st.warning("Gerente sem unidade vinculada.")
+                st.stop()
+            lista_ids = [user['unidade_id']]
 
-            if periodo == "Dia":
-                d_ini = c2.date_input("Data:", hoje, max_value=hoje)
-                d_fim = d_ini
-            elif periodo == "Semana":
-                d_ini = hoje - timedelta(days=hoje.weekday())
-                d_fim = hoje
-            else:
-                d_ini = hoje.replace(day=1)
-                d_fim = hoje
+        if not lista_ids:
+            st.info("Selecione uma loja.")
+            st.stop()
 
-            res = db.buscar_fechamento_por_data(supabase, loja_id, str(d_ini), str(d_fim))
+        # 2. FILTROS DE DATA
+        c1, c2 = st.columns(2)
+        periodo = c1.selectbox("Período:", ["Dia", "Semana", "Mês"])
+        hoje = date.today()
+        if periodo == "Dia":
+            d_ini = c2.date_input("Data:", hoje, max_value=hoje); d_fim = d_ini
+        elif periodo == "Semana":
+            d_ini = hoje - timedelta(days=hoje.weekday()); d_fim = hoje
+        else:
+            d_ini = hoje.replace(day=1); d_fim = hoje
+
+        # 3. BUSCA E EXIBIÇÃO
+        res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids, str(d_ini), str(d_fim))
+        
+        if res and res.data:
+            df_geral = pd.DataFrame(res.data)
+            id_para_nome = {v: k for k, v in mapa_lojas.items()}
             
-            if res and res.data:
-                df_raw = pd.DataFrame(res.data)
-                
-                if periodo == "Dia":
-                    d = res.data[0]
-                    st.markdown(f"### DETALHAMENTO DO DIA: {pd.to_datetime(d['data_fechamento']).strftime('%d/%m/%Y')}")
+            # Layout dinâmico em colunas
+            cols_dash = st.columns(len(lista_ids))
+            
+            for idx, l_id in enumerate(lista_ids):
+                with cols_dash[idx]:
+                    st.subheader(f"🏢 {id_para_nome.get(l_id)}")
+                    df_l = df_geral[df_geral['loja_id'] == l_id]
                     
-                    dados_tabela = [
-                        {"DESCRIÇÃO": "CARTÃO", "VALOR SISTEMA": d['sis_cartao'], "VALOR DE CONFERENCIA": d['conf_cartao']},
-                        {"DESCRIÇÃO": "CREDIÁRIO", "VALOR SISTEMA": d['sis_crediario'], "VALOR DE CONFERENCIA": d['conf_crediario']},
-                        {"DESCRIÇÃO": "DINHEIRO", "VALOR SISTEMA": d['sis_dinheiro'], "VALOR DE CONFERENCIA": d['conf_dinheiro']},
-                        {"DESCRIÇÃO": "IFOOD", "VALOR SISTEMA": d['sis_ifood'], "VALOR DE CONFERENCIA": d['conf_ifood']},
-                        {"DESCRIÇÃO": "PIX TRANSF", "VALOR SISTEMA": d['sis_pix'], "VALOR DE CONFERENCIA": d['conf_pix']},
-                        {"DESCRIÇÃO": "DESPESA", "VALOR SISTEMA": 0.0, "VALOR DE CONFERENCIA": d['despesa']}
-                    ]
-                    
-                    df_tab = pd.DataFrame(dados_tabela)
-                    df_tab['ACERTO'] = df_tab['VALOR DE CONFERENCIA'] - df_tab['VALOR SISTEMA']
-                    df_tab.loc[df_tab['DESCRIÇÃO'] == 'DESPESA', 'ACERTO'] = -d['despesa']
+                    if not df_l.empty:
+                        t_s = df_l[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
+                        t_c = df_l[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
+                        t_d = df_l['despesa'].sum()
+                        t_a = t_c - t_s - (t_d * 2)
 
-                    st.table(df_tab.style.format({"VALOR SISTEMA": "R$ {:.2f}", "VALOR DE CONFERENCIA": "R$ {:.2f}", "ACERTO": "R$ {:.2f}"}))
+                        st.metric("Venda (Sis)", f"R$ {t_s:,.2f}")
+                        st.metric("Acerto", f"R$ {t_a:,.2f}", delta=f"{t_a:,.2f}")
 
-                    t_sis = df_tab['VALOR SISTEMA'].sum()
-                    t_conf = df_tab['VALOR DE CONFERENCIA'].sum()
-                    t_ace = t_conf - t_sis - (d['despesa'] * 2)
-                    
-                    c_t1, c_t2, c_t3 = st.columns([2, 2, 1.5])
-                    c_t1.subheader("TOTAL")
-                    c_t2.subheader(f"R$ {t_sis:,.2f} | R$ {t_conf:,.2f}")
-                    cor_f = "#ff4b4b" if t_ace < 0 else "#00ff00"
-                    c_t3.markdown(f"<h3 style='color:{cor_f};'>R$ {t_ace:,.2f}</h3>", unsafe_allow_html=True)
-
-                    if d['urls_prints']:
-                        st.write("---")
-                        st.write("**📸 Comprovantes Anexados:**")
-                        cols_p = st.columns(len(d['urls_prints']))
-                        for i, url_p in enumerate(d['urls_prints']):
-                            cols_p[i].markdown(f'<a href="{url_p}" target="_blank"><img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px; border: 1px solid #333;"></a>', unsafe_allow_html=True)
-                
-                else:
-                    tot_sis = df_raw[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
-                    tot_conf = df_raw[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
-                    tot_desp = df_raw['despesa'].sum()
-                    tot_acer = tot_conf - tot_sis - (tot_desp * 2)
-
-                    m1, m2, m3, m4 = st.columns(4)
-                    m1.metric("Sistema", f"R$ {tot_sis:,.2f}")
-                    m2.metric("Conferido", f"R$ {tot_conf:,.2f}")
-                    m3.metric("Despesas", f"R$ {tot_desp:,.2f}")
-                    m4.metric("Acerto", f"R$ {tot_acer:,.2f}", delta=f"{tot_acer:,.2f}")
-            else:
-                st.info("Nenhum dado encontrado para este período.")
+                        if periodo == "Dia":
+                            d = df_l.iloc[0]
+                            tab_d = pd.DataFrame({
+                                "Item": ["Cartão", "Dinheiro", "Despesa"],
+                                "Conferido": [d['conf_cartao'], d['conf_dinheiro'], d['despesa']]
+                            })
+                            st.table(tab_d.style.format({"Conferido": "R$ {:.2f}"}))
+                            if d['urls_prints']:
+                                for url_p in d['urls_prints']:
+                                    st.markdown(f'<a href="{url_p}" target="_blank"><img src="{url_p}" width="100%" style="max-width:150px; border-radius:5px; margin-bottom:5px;"></a>', unsafe_allow_html=True)
+                    else:
+                        st.caption("Sem dados.")
+        else:
+            st.info("Nenhum lançamento encontrado.")
 
     elif escolha == "📝 Lançamento Diário":
         st.title("📝 Fechamento de Caixa Diário")
@@ -216,28 +215,23 @@ else:
             imgs = st.file_uploader("Prints", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
             obs = st.text_area("Obs")
             if st.form_submit_button("✅ SALVAR NO BANCO", use_container_width=True):
-                with st.spinner("Verificando e salvando..."):
-                    # 1. Tentar salvar primeiro os dados (para validar Unique Key antes do upload pesado)
-                    dados_insert = {
+                with st.spinner("Validando e salvando..."):
+                    d_ins = {
                         "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
                         "sis_cartao": s_car, "conf_cartao": c_car, "sis_crediario": s_cre, "conf_crediario": c_cre,
                         "sis_dinheiro": s_din, "conf_dinheiro": c_din, "sis_ifood": s_ifo, "conf_ifood": c_ifo,
                         "sis_pix": s_pix, "conf_pix": c_pix, "despesa": v_desp, "observacoes": obs, "urls_prints": []
                     }
-                    
-                    sucesso_db, res_msg = db.salvar_fechamento(supabase, dados_insert)
-                    
-                    if sucesso_db:
-                        # 2. Se salvou os dados, agora fazemos o upload das imagens e atualizamos o registro
+                    ok, res_m = db.salvar_fechamento(supabase, d_ins)
+                    if ok:
                         urls = []
                         for i, f in enumerate(imgs):
-                            url_f = db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
-                            if url_f: urls.append(url_f)
-                        
+                            u_f = db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
+                            if u_f: urls.append(u_f)
                         if urls:
-                            supabase.table("fechamentos").update({"urls_prints": urls}).eq("id", res_msg.data[0]['id']).execute()
-                        
-                        st.success("✅ Fechamento salvo com sucesso!")
-                        st.balloons()
+                            supabase.table("fechamentos").update({"urls_prints": urls}).eq("id", res_m.data[0]['id']).execute()
+                        st.success("✅ Salvo com sucesso!"); st.balloons()
                     else:
-                        st.error(f"❌ Erro: {res_msg}")
+                        st.error(f"❌ Erro: {res_m}")
+
+    # (Lógica para Adicionar Usuário, Consultar Usuários e Lojas mantida...)
