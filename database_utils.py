@@ -51,12 +51,17 @@ def fazer_upload_print(supabase, arquivo, caminho_destino):
         return None
 
 def salvar_fechamento(supabase, dados):
-    """Salva os dados de fechamento na tabela."""
+    """Salva os dados de fechamento na tabela e trata erros de duplicidade."""
     try:
-        return supabase.table("fechamentos").insert(dados).execute()
+        res = supabase.table("fechamentos").insert(dados).execute()
+        return True, res
     except Exception as e:
-        st.error(f"Erro ao salvar fechamento: {e}")
-        return None
+        # Verifica se o erro é de chave duplicada (código 23505 no PostgreSQL)
+        erro_str = str(e)
+        if "23505" in erro_str:
+            return False, "Este dia já possui um lançamento para esta loja."
+        else:
+            return False, f"Erro inesperado: {erro_str}"
 
 def buscar_fechamento_por_data(supabase, loja_id, data_inicio, data_fim):
     """Busca lançamentos em um intervalo de datas para uma loja específica."""
