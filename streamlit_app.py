@@ -121,6 +121,9 @@ else:
         if st.sidebar.button("➕ Adicionar Usuário", use_container_width=True):
             st.session_state.pagina_ativa = "➕ Adicionar Usuário"
             st.rerun()
+        if st.sidebar.button("🏢 Consultar Lojas", use_container_width=True):
+            st.session_state.pagina_ativa = "🏢 Consultar Lojas"
+            st.rerun()
     
     if user['funcao'] == 'gerente':
         if st.sidebar.button("📝 Lançamento Diário", use_container_width=True):
