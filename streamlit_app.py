@@ -169,17 +169,25 @@ else:
                 id_da_loja_final = dict_lojas.get(loja_selecionada) # Pega o ID ou None se for "Nenhuma"
             funcao_cad = st.selectbox("Nível", ["gerente", "proprietario", "financeiro", "admin"])
             if st.form_submit_button("Finalizar Cadastro", use_container_width=True):
-                if nome and novo_usuario and nova_senha_cad:
-                    hash_cad = auth.gerar_hash_senha(nova_senha_cad)
-                    dados = {
-                        "nome": nome, "sobrenome": sobrenome, "email": email,
-                        "username": novo_usuario, "senha_hash": hash_cad,
-                        "funcao": funcao_cad, "unidade_id": loja if isinstance(loja, int) else None
-                    }
-                    db.cadastrar_usuario(supabase, dados)
-                    st.success("Usuário criado!")
-                else:
-                    st.warning("Preencha os campos obrigatórios.")
+            if nome and novo_usuario and nova_senha_cad:
+                hash_cad = auth.gerar_hash_senha(nova_senha_cad)
+                
+                # MAPEAMENTO CORRIGIDO:
+                dados = {
+                    "nome": nome, 
+                    "sobrenome": sobrenome, 
+                    "email": email,
+                    "username": novo_usuario, 
+                    "senha_hash": hash_cad,
+                    "funcao": funcao_cad, 
+                    "unidade_id": id_da_loja_final  # Usando a variável nova que criamos
+                }
+                
+                db.cadastrar_usuario(supabase, dados)
+                st.success(f"Usuário {novo_usuario} criado com sucesso!")
+                st.rerun()
+            else:
+                st.warning("Preencha os campos obrigatórios.")
 
     elif escolha == "👥 Consultar Usuários":
         st.title("👥 Gestão de Usuários")
