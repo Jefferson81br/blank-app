@@ -1,6 +1,46 @@
-[theme]
-primaryColor = "#00ff00"          # Um verde farmácia/neon para destacar
-backgroundColor = "#000000"       # Fundo Totalmente Preto
-secondaryBackgroundColor = "#111111" # Cinza bem escuro para Sidebar e Cards
-textColor = "#ffffff"             # Texto Branco
-font = "sans serif"
+st.markdown("""
+    <style>
+        /* Fundo principal */
+        .stApp {
+            background-color: #000000;
+        }
+        
+        /* Fundo da Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #0d0d0d;
+            border-right: 1px solid #333333;
+        }
+
+        /* Forçar campos de input a ficarem escuros com texto branco */
+        input[type=number], input[type=text], input[type=password], .stTextArea textarea {
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            border: 1px solid #333333 !important;
+        }
+
+        /* REMOVER BOTÕES + e - (Sinal de adição/subtração) */
+        /* Para Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0 !important;
+        }
+
+        /* Para Firefox */
+        input[type=number] {
+            -moz-appearance: textfield !important;
+        }
+
+        /* Esconder os botões visuais do Streamlit especificamente */
+        button[step="up"], button[step="down"], .stNumberInput button {
+            display: none !important;
+        }
+        
+        /* Ajuste de botões gerais */
+        .stButton>button {
+            border: 1px solid #333333;
+            background-color: #1a1a1a;
+            color: white;
+        }
+    </style>
+    """, unsafe_allow_html=True)
