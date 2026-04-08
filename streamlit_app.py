@@ -194,54 +194,54 @@ else:
                             st.rerun()
     
     elif escolha == "🏢 Consultar Lojas":
-    st.title("🏢 Gestão de Unidades")
+         st.title("🏢 Gestão de Unidades")
     
-    tab1, tab2 = st.tabs(["Lista de Lojas", "➕ Nova Loja"])
+         tab1, tab2 = st.tabs(["Lista de Lojas", "➕ Nova Loja"])
 
-    with tab1:
-        lojas_res = db.buscar_lojas(supabase)
-        if lojas_res and lojas_res.data:
-            for loja in lojas_res.data:
-                with st.expander(f"{loja['nome']} - {loja['marca'] or 'Sem Marca'}"):
-                    with st.form(f"edit_loja_{loja['id']}"):
-                        col1, col2 = st.columns(2)
-                        novo_nome_l = col1.text_input("Nome da Loja", value=loja['nome'])
-                        nova_marca_l = col2.text_input("Marca", value=loja['marca'])
-                        novo_end_l = st.text_input("Endereço", value=loja['endereco'])
+         with tab1:
+             lojas_res = db.buscar_lojas(supabase)
+             if lojas_res and lojas_res.data:
+                 for loja in lojas_res.data:
+                     with st.expander(f"{loja['nome']} - {loja['marca'] or 'Sem Marca'}"):
+                         with st.form(f"edit_loja_{loja['id']}"):
+                             col1, col2 = st.columns(2)
+                             novo_nome_l = col1.text_input("Nome da Loja", value=loja['nome'])
+                             nova_marca_l = col2.text_input("Marca", value=loja['marca'])
+                             novo_end_l = st.text_input("Endereço", value=loja['endereco'])
                         
-                        # Buscar lista de usuários para selecionar o gerente
-                        users_res = db.buscar_todos_usuarios(supabase)
-                        lista_gerentes = {u['nome']: u['id'] for u in users_res.data} if users_res.data else {}
+                             # Buscar lista de usuários para selecionar o gerente
+                             users_res = db.buscar_todos_usuarios(supabase)
+                             lista_gerentes = {u['nome']: u['id'] for u in users_res.data} if users_res.data else {}
                         
-                        # Tenta encontrar o nome do gerente atual para o selectbox
-                        nome_gerente_atual = next((nome for nome, id_u in lista_gerentes.items() if id_u == loja['gerente_id']), None)
+                             # Tenta encontrar o nome do gerente atual para o selectbox
+                             nome_gerente_atual = next((nome for nome, id_u in lista_gerentes.items() if id_u == loja['gerente_id']), None)
                         
-                        novo_gerente = st.selectbox("Gerente Responsável", 
+                             novo_gerente = st.selectbox("Gerente Responsável", 
                                                    options=list(lista_gerentes.keys()),
                                                    index=list(lista_gerentes.keys()).index(nome_gerente_atual) if nome_gerente_atual else 0)
 
-                        if st.form_submit_button("Salvar Alterações", use_container_width=True):
-                            dados_update = {
-                                "nome": novo_nome_l,
-                                "marca": nova_marca_l,
-                                "endereco": novo_end_l,
-                                "gerente_id": lista_gerentes[novo_gerente]
-                            }
-                            db.atualizar_loja(supabase, loja.id, dados_update)
-                            st.success("Loja atualizada!")
-                            st.rerun()
+                             if st.form_submit_button("Salvar Alterações", use_container_width=True):
+                                 dados_update = {
+                                     "nome": novo_nome_l,
+                                     "marca": nova_marca_l,
+                                     "endereco": novo_end_l,
+                                     "gerente_id": lista_gerentes[novo_gerente]
+                                 }
+                                 db.atualizar_loja(supabase, loja.id, dados_update)
+                                 st.success("Loja atualizada!")
+                                 st.rerun()
 
-    with tab2:
-        st.subheader("Cadastrar Nova Unidade")
-        with st.form("nova_loja_form"):
-            n_nome = st.text_input("Nome da Farmácia")
-            n_marca = st.text_input("Marca/Rede")
-            n_end = st.text_input("Endereço Completo")
+         with tab2:
+             st.subheader("Cadastrar Nova Unidade")
+             with st.form("nova_loja_form"):
+                 n_nome = st.text_input("Nome da Farmácia")
+                 n_marca = st.text_input("Marca/Rede")
+                 n_end = st.text_input("Endereço Completo")
             
-            if st.form_submit_button("Cadastrar Loja", use_container_width=True):
-                if n_nome:
-                    db.cadastrar_loja(supabase, {"nome": n_nome, "marca": n_marca, "endereco": n_end})
-                    st.success("Loja cadastrada com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("O nome da loja é obrigatório.")  
+                 if st.form_submit_button("Cadastrar Loja", use_container_width=True):
+                     if n_nome:
+                         db.cadastrar_loja(supabase, {"nome": n_nome, "marca": n_marca, "endereco": n_end})
+                         st.success("Loja cadastrada com sucesso!")
+                         st.rerun()
+                     else:
+                         st.error("O nome da loja é obrigatório.")  
