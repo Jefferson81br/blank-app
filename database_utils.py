@@ -36,3 +36,24 @@ def cadastrar_loja(supabase, dados):
 
 def atualizar_loja(supabase, loja_id, dados):
     return supabase.table("lojas").update(dados).eq("id", loja_id).execute()
+
+def fazer_upload_print(supabase, arquivo, caminho_destino):
+    """Envia uma imagem para o Storage e retorna a URL pública."""
+    try:
+        # Lê os bytes do arquivo enviado pelo Streamlit
+        conteudo = arquivo.getvalue()
+        # Faz o upload
+        supabase.storage.from_("comprovantes").upload(caminho_destino, conteudo)
+        # Retorna a URL pública do arquivo
+        return supabase.storage.from_("comprovantes").get_public_url(caminho_destino)
+    except Exception as e:
+        st.error(f"Erro no upload da imagem: {e}")
+        return None
+
+def salvar_fechamento(supabase, dados):
+    """Salva os dados de fechamento na tabela."""
+    try:
+        return supabase.table("fechamentos").insert(dados).execute()
+    except Exception as e:
+        st.error(f"Erro ao salvar fechamento: {e}")
+        return None
