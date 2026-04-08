@@ -31,6 +31,8 @@ def atualizar_senha_usuario(supabase, user_id, novo_hash):
 def buscar_lojas(supabase):
     return supabase.table("lojas").select("*").order("nome").execute()
 
+
+
 def cadastrar_loja(supabase, dados):
     return supabase.table("lojas").insert(dados).execute()
 
@@ -62,6 +64,19 @@ def salvar_fechamento(supabase, dados):
             return False, "Este dia já possui um lançamento para esta loja."
         else:
             return False, f"Erro inesperado: {erro_str}"
+def buscar_fechamento_multiplas_lojas(supabase, lista_loja_ids, data_inicio, data_fim):
+    """Busca lançamentos de várias lojas ao mesmo tempo."""
+    try:
+        return supabase.table("fechamentos")\
+            .select("*")\
+            .in_("loja_id", lista_loja_ids)\
+            .gte("data_fechamento", data_inicio)\
+            .lte("data_fechamento", data_fim)\
+            .order("data_fechamento")\
+            .execute()
+    except Exception as e:
+        st.error(f"Erro ao buscar dados: {e}")
+        return None
 
 def buscar_fechamento_por_data(supabase, loja_id, data_inicio, data_fim):
     """Busca lançamentos em um intervalo de datas para uma loja específica."""
