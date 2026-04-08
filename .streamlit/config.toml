@@ -1,1 +1,6 @@
-
+[theme]
+primaryColor = "#00ff00"          # Um verde farmácia/neon para destacar
+backgroundColor = "#000000"       # Fundo Totalmente Preto
+secondaryBackgroundColor = "#111111" # Cinza bem escuro para Sidebar e Cards
+textColor = "#ffffff"             # Texto Branco
+font = "sans serif"
