@@ -183,9 +183,9 @@ else:
                       "unidade_id": id_da_loja_final  # Usando a variável nova que criamos
                 }
                 
-                db.cadastrar_usuario(supabase, dados)
-                st.success(f"Usuário {novo_usuario} criado com sucesso!")
-                st.rerun()
+                   db.cadastrar_usuario(supabase, dados)
+                   st.success(f"Usuário {novo_usuario} criado com sucesso!")
+                   st.rerun()
             else:
                 st.warning("Preencha os campos obrigatórios.")
 
