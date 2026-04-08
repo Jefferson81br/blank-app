@@ -3,7 +3,7 @@ from supabase import create_client, Client
 import database_utils as db  # Importa suas funções de banco
 import auth_utils as auth    # Importa sua lógica de senha
 
-# 1. Configuração da Conexão (Puxando dos Secrets do Streamlit Cloud)
+# 1. Configuração da Conexão
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
@@ -12,6 +12,9 @@ supabase = create_client(url, key)
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.user_data = None
+
+if 'pagina_ativa' not in st.session_state:
+    st.session_state.pagina_ativa = "📊 Dashboard"
 
 # --- FLUXO DE TELAS ---
 
@@ -33,9 +36,8 @@ if not st.session_state.autenticado:
                     st.session_state.autenticado = True
                     st.session_state.user_data = user
                     st.rerun()
-                    
                 else:
-                    # Caso a senha no banco ainda seja texto puro (como o seu admin atual)
+                    # Fallback para senhas em texto puro (Admin inicial)
                     if pass_input == user['senha_hash']:
                        st.session_state.autenticado = True
                        st.session_state.user_data = user
@@ -47,99 +49,111 @@ if not st.session_state.autenticado:
 
 else:
     # SISTEMA APÓS LOGIN
-   
     user = st.session_state.user_data
     
-    # Barra Lateral
+    # --- BARRA LATERAL (SIDEBAR) ---
     st.sidebar.title(f"Olá, {user['nome']}")
     st.sidebar.info(f"Nível: {user['funcao'].upper()}")
 
-    # Na Sidebar, para todos os usuários
+    # Expander de Minha Conta
     with st.sidebar.expander("⚙️ Minha Conta"):
         with st.form("form_troca_senha_propria"):
-            st.write("Alterar Senha")
+            st.write("Alterar Minha Senha")
             senha_atual = st.text_input("Senha Atual", type="password")
             nova_senha = st.text_input("Nova Senha", type="password")
-            confirmar = st.form_submit_button("Atualizar Senha")
+            confirmar = st.form_submit_button("Atualizar Senha", use_container_width=True)
             
             if confirmar:
-                # 1. Verificar se a senha atual está correta
-                if auth.verificar_senha(senha_atual, user['senha_hash']):
+                if auth.verificar_senha(senha_atual, user['senha_hash']) or senha_atual == user['senha_hash']:
                     if nova_senha:
-                        # 2. Gerar novo hash e salvar
                         novo_hash = auth.gerar_hash_senha(nova_senha)
                         db.atualizar_senha_usuario(supabase, user['id'], novo_hash)
-                        st.success("Senha alterada! Relogue para aplicar.")
+                        st.success("Senha alterada!")
                     else:
-                        st.error("Digite uma nova senha.")
+                        st.error("Digite a nova senha.")
                 else:
                     st.error("Senha atual incorreta.")
-    
-    # Definindo as opções de menu com base no cargo
-    if user['funcao'] == 'admin':
-        menu_opcoes = ["📊 Dashboard", "👥 Consultar Usuários", "➕ Adicionar Usuário"]
-    elif user['funcao'] == 'proprietario':
-        menu_opcoes = ["📊 Dashboard"]
-    elif user['funcao'] == 'gerente':
-        menu_opcoes = ["📝 Lançamento Diário"]
-    else:
-        menu_opcoes = ["📊 Dashboard"]
 
-    escolha = st.sidebar.radio("Navegação", menu_opcoes)
-    
-    if st.sidebar.button("Sair"):
-        st.session_state.autenticado = False
-        st.session_state.user_data = None
+    st.sidebar.markdown("---")
+    st.sidebar.write("Navegação")
+
+    # Botões de Navegação (Homogêneos)
+    if st.sidebar.button("📊 Dashboard", use_container_width=True):
+        st.session_state.pagina_ativa = "📊 Dashboard"
         st.rerun()
 
-    # --- LÓGICA DE TELAS ---
+    if user['funcao'] == 'admin':
+        if st.sidebar.button("👥 Consultar Usuários", use_container_width=True):
+            st.session_state.pagina_ativa = "👥 Consultar Usuários"
+            st.rerun()
+        if st.sidebar.button("➕ Adicionar Usuário", use_container_width=True):
+            st.session_state.pagina_ativa = "➕ Adicionar Usuário"
+            st.rerun()
+    
+    if user['funcao'] == 'gerente':
+        if st.sidebar.button("📝 Lançamento Diário", use_container_width=True):
+            st.session_state.pagina_ativa = "📝 Lançamento Diário"
+            st.rerun()
 
-    # 1. TELA DE DASHBOARD (Admin e Proprietário)
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🚪 Sair", use_container_width=True):
+        st.session_state.autenticado = False
+        st.session_state.user_data = None
+        st.session_state.pagina_ativa = "📊 Dashboard"
+        st.rerun()
+
+    # --- LÓGICA DE RENDERIZAÇÃO DAS TELAS ---
+    escolha = st.session_state.pagina_ativa
+
     if escolha == "📊 Dashboard":
         st.title("📊 Dashboard Executivo")
-        st.write("Bem-vindo ao centro de controle das 8 farmácias.")
-        # Futuramente incluiremos os gráficos aqui
+        st.write(f"Bem-vindo ao centro de controle, {user['nome']}.")
+        st.info("Os indicadores de vendas serão exibidos aqui.")
 
-    # 2. TELA DE ADICIONAR USUÁRIO (A que acabamos de criar)
     elif escolha == "➕ Adicionar Usuário":
         st.title("➕ Cadastrar Novo Usuário")
-        # Coloque aqui o código do formulário de cadastro que testamos
-        # (Lembre-se de usar auth.gerar_hash_senha)
+        with st.form("form_cadastro_usuario", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                nome = st.text_input("Nome")
+                email = st.text_input("E-mail")
+                novo_usuario = st.text_input("Login")
+            with col2:
+                sobrenome = st.text_input("Sobrenome")
+                loja = st.selectbox("Unidade", [1, 2, 3, 4, 5, 6, 7, 8, "N/A"])
+                nova_senha_cad = st.text_input("Senha Inicial", type="password")
+            
+            funcao_cad = st.selectbox("Nível", ["gerente", "proprietario", "financeiro", "admin"])
+            if st.form_submit_button("Finalizar Cadastro", use_container_width=True):
+                if nome and novo_usuario and nova_senha_cad:
+                    hash_cad = auth.gerar_hash_senha(nova_senha_cad)
+                    dados = {
+                        "nome": nome, "sobrenome": sobrenome, "email": email,
+                        "username": novo_usuario, "senha_hash": hash_cad,
+                        "funcao": funcao_cad, "unidade_id": loja if isinstance(loja, int) else None
+                    }
+                    db.cadastrar_usuario(supabase, dados)
+                    st.success("Usuário criado!")
+                else:
+                    st.warning("Preencha os campos obrigatórios.")
 
-    # 3. TELA DE CONSULTAR USUÁRIOS (Excluir e Mudar Senha)
     elif escolha == "👥 Consultar Usuários":
         st.title("👥 Gestão de Usuários")
-        
-        usuarios_res = db.buscar_todos_usuarios(supabase) # Vamos criar essa função
-        
+        usuarios_res = db.buscar_todos_usuarios(supabase)
         if usuarios_res and usuarios_res.data:
             for u in usuarios_res.data:
                 with st.expander(f"{u['nome']} {u['sobrenome'] or ''} (@{u['username']})"):
-                    col1, col2, col3 = st.columns([2, 1, 1])
-                    with col1:
-                        st.write(f"**E-mail:** {u['email']}")
-                        st.write(f"**Função:** {u['funcao']}")
-                        st.write(f"**Loja:** {u['unidade_id'] or 'N/A'}")
-                    
-                    with col2:
-                     # Usamos uma chave única para o formulário de cada usuário
-                     com_reset = st.popover("🔑 Resetar Senha")
-                     with com_reset:
-                         nova_senha_admin = st.text_input("Nova senha para o usuário", type="password", key=f"new_pass_{u['id']}")
-                         if st.button("Confirmar Reset", key=f"btn_res_{u['id']}"):
-                             if nova_senha_admin:
-                                 novo_hash_admin = auth.gerar_hash_senha(nova_senha_admin)
-                                 db.atualizar_senha_usuario(supabase, u['id'], novo_hash_admin)
-                                 st.success(f"Senha de {u['username']} atualizada!")
-                             else:
-                                 st.error("Campo vazio.")
-                            
-                    with col3:
-                        if st.button("Excluir", key=f"del_{u['id']}"):
-                            # Chamada para deletar no banco
-                            try:
-                                supabase.table("usuarios").delete().eq("id", u['id']).execute()
-                                st.success("Usuário removido!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro: {e}")
+                    c1, c2, c3 = st.columns([2, 1, 1])
+                    with c1:
+                        st.write(f"Função: {u['funcao']} | Loja: {u['unidade_id'] or 'Admin'}")
+                    with c2:
+                        pop = st.popover("🔑 Resetar")
+                        with pop:
+                            nova_p = st.text_input("Nova senha", type="password", key=f"p_{u['id']}")
+                            if st.button("Confirmar", key=f"b_{u['id']}"):
+                                db.atualizar_senha_usuario(supabase, u['id'], auth.gerar_hash_senha(nova_p))
+                                st.success("Resetado!")
+                    with c3:
+                        if st.button("Excluir", key=f"d_{u['id']}", use_container_width=True):
+                            supabase.table("usuarios").delete().eq("id", u['id']).execute()
+                            st.rerun()
