@@ -8,6 +8,7 @@ import dashboard_view
 import lancamento_view
 import usuarios_view
 import lojas_view
+import auditoria_view  # Novo módulo de auditoria
 
 from datetime import date, timedelta
 import pandas as pd
@@ -94,9 +95,12 @@ else:
                     st.error("Senha atual incorreta.")
 
     st.sidebar.markdown("---")
+    
+    # Botões comuns
     if st.sidebar.button("📊 Dashboard", use_container_width=True):
         st.session_state.pagina_ativa = "📊 Dashboard"; st.rerun()
 
+    # Menu Administrativo
     if user['funcao'] == 'admin':
         if st.sidebar.button("👥 Consultar Usuários", use_container_width=True):
             st.session_state.pagina_ativa = "👥 Consultar Usuários"; st.rerun()
@@ -104,7 +108,13 @@ else:
             st.session_state.pagina_ativa = "➕ Adicionar Usuário"; st.rerun()
         if st.sidebar.button("🏢 Consultar Lojas", use_container_width=True):
             st.session_state.pagina_ativa = "🏢 Consultar Lojas"; st.rerun()
+
+    # Menu de Auditoria (Apenas Admin e Proprietário)
+    if user['funcao'] in ['admin', 'proprietario']:
+        if st.sidebar.button("⚖️ Auditoria / Correção", use_container_width=True):
+            st.session_state.pagina_ativa = "⚖️ Auditoria / Correção"; st.rerun()
     
+    # Menu de Lançamento (Gerente e Admin)
     if user['funcao'] in ['gerente', 'admin']:
         if st.sidebar.button("📝 Lançamento Diário", use_container_width=True):
             st.session_state.pagina_ativa = "📝 Lançamento Diário"; st.rerun()
@@ -121,6 +131,9 @@ else:
 
     elif escolha == "📝 Lançamento Diário":
         lancamento_view.renderizar_tela(supabase, user)
+
+    elif escolha == "⚖️ Auditoria / Correção":
+        auditoria_view.renderizar_tela(supabase, user)
 
     elif escolha == "👥 Consultar Usuários":
         usuarios_view.gerenciar_usuarios(supabase, user)
