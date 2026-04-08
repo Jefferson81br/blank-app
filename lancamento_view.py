@@ -5,10 +5,22 @@ import database_utils as db
 def renderizar_tela(supabase, user):
     st.title("📝 Lançamento de Caixa Diário")
     
-    loja_id = user['unidade_id']
-    if not loja_id:
-        st.error("Erro: Usuário sem unidade vinculada.")
-        st.stop()
+    # --- LÓGICA DE SELEÇÃO DE LOJA PARA ADMIN ---
+    lojas_res = db.buscar_lojas(supabase)
+    mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
+
+    if user['funcao'] == 'admin':
+        # Se for admin, permite escolher a loja antes de lançar
+        loja_nome_sel = st.selectbox("Selecione a Unidade para o Lançamento:", options=list(mapa_lojas.keys()))
+        loja_id = mapa_lojas[loja_nome_sel]
+    else:
+        # Se for gerente, usa a loja vinculada ao perfil
+        loja_id = user['unidade_id']
+        if not loja_id:
+            st.error("Erro: Usuário sem unidade vinculada no cadastro.")
+            st.stop()
+        nome_loja = next((nome for nome, id in mapa_lojas.items() if id == loja_id), "Minha Unidade")
+        st.info(f"Unidade: {nome_loja}")
 
     # --- STATUS DOS ÚLTIMOS 7 DIAS ---
     st.subheader("📅 Status de Lançamentos")
@@ -31,7 +43,7 @@ def renderizar_tela(supabase, user):
 
     st.write("---")
     
-    # Cabeçalhos
+    # Cabeçalhos das Colunas
     c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
     c1.write("**DESCRIÇÃO**"); c2.write("**SISTEMA**"); c3.write("**CONFERÊNCIA**"); c4.write("**ACERTO**")
 
@@ -62,27 +74,27 @@ def renderizar_tela(supabase, user):
     _, cdev, adev = linha_f("DEV. CARTÃO", "dev", True)
     _, cout, aout = linha_f("OUTROS", "out", True)
 
-    # Totais simplificados para o banco
-    t_sis = sc+sr+sd+si+sp+sx+sv+sf+sl
-    t_con = (cc+cr+cd+ci+cp+cx+cv+cf+cl) - (cdes+cvfu+cdev+cout)
-    t_ace = ac+ar+ad+ai+ap+ax+av+af+al+ades+avfu+adev+aout
-
     with st.form("f_gerente", clear_on_submit=True):
         imgs = st.file_uploader("Prints", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
         obs = st.text_area("Observações")
         if st.form_submit_button("✅ ENVIAR FECHAMENTO", use_container_width=True):
-            dados = {
-                "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_ifood": si, "conf_ifood": ci,
-                "sis_pbm": sp, "conf_pbm": cp, "sis_pix": sx, "conf_pix": cx,
-                "sis_vale_compra": sv, "conf_vale_compra": cv, "sis_fapp": sf, "conf_fapp": cf,
-                "sis_vlink": sl, "conf_vlink": cl, "conf_despesa": cdes, "conf_vale_func": cvfu,
-                "conf_dev_cartao": cdev, "conf_outros": cout, "observacoes": obs
-            }
-            ok, res = db.salvar_fechamento(supabase, dados)
-            if ok:
-                if imgs:
-                    urls = [db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg") for i, f in enumerate(imgs)]
-                    supabase.table("fechamentos").update({"urls_prints": [u for u in urls if u]}).eq("id", res.data[0]['id']).execute()
-                st.success("Salvo!"); st.rerun()
+            if str(data_sel) in datas_feitas:
+                st.error("Erro: Já existe um lançamento para esta data. Use a Auditoria para alterar.")
+            else:
+                dados = {
+                    "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
+                    "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
+                    "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_ifood": si, "conf_ifood": ci,
+                    "sis_pbm": sp, "conf_pbm": cp, "sis_pix": sx, "conf_pix": cx,
+                    "sis_vale_compra": sv, "conf_vale_compra": cv, "sis_fapp": sf, "conf_fapp": cf,
+                    "sis_vlink": sl, "conf_vlink": cl, "conf_despesa": cdes, "conf_vale_func": cvfu,
+                    "conf_dev_cartao": cdev, "conf_outros": cout, "observacoes": obs
+                }
+                ok, res = db.salvar_fechamento(supabase, dados)
+                if ok:
+                    if imgs:
+                        urls = [db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg") for i, f in enumerate(imgs)]
+                        supabase.table("fechamentos").update({"urls_prints": [u for u in urls if u]}).eq("id", res.data[0]['id']).execute()
+                    st.success("✅ Lançamento realizado com sucesso!")
+                    st.rerun()
+                else: st.error(f"Erro ao salvar: {res}")
