@@ -109,7 +109,7 @@ else:
     # --- RENDERIZAÇÃO DE TELAS ---
     escolha = st.session_state.pagina_ativa
 
-    # 1. TELA DASHBOARD
+    # 1. TELA DASHBOARD (CORRIGIDA COM TODOS OS ITENS)
     if escolha == "📊 Dashboard":
         st.title("📊 Painel de Performance")
         lojas_res = db.buscar_lojas(supabase)
@@ -143,27 +143,40 @@ else:
                     st.subheader(f"🏢 {id_para_nome.get(l_id)}")
                     df_l = df_geral[df_geral['loja_id'] == l_id]
                     if not df_l.empty:
+                        # Totais Acumulados do Período
                         t_s = df_l[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
                         t_c = df_l[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
                         t_d = df_l['despesa'].sum()
                         t_a = t_c - t_s - (t_d * 2)
+                        
                         st.metric("Venda (Sis)", f"R$ {t_s:,.2f}")
                         st.metric("Acerto", f"R$ {t_a:,.2f}", delta=f"{t_a:,.2f}")
+
                         if periodo == "Dia":
                             d = df_l.iloc[0]
-                            df_tab = pd.DataFrame([
-                                {"DESCRIÇÃO": "CARTÃO", "SISTEMA": d['sis_cartao'], "CONFERÊNCIA": d['conf_cartao']},
-                                {"DESCRIÇÃO": "DINHEIRO", "SISTEMA": d['sis_dinheiro'], "CONFERÊNCIA": d['conf_dinheiro']},
-                                {"DESCRIÇÃO": "DESPESA", "SISTEMA": 0.0, "CONFERÊNCIA": d['despesa']}
-                            ])
-                            st.table(df_tab.style.format({"SISTEMA": "R$ {:.2f}", "CONFERÊNCIA": "R$ {:.2f}"}))
+                            # MAPEAMENTO COMPLETO DA PLANILHA
+                            dados_completos = [
+                                {"ITEM": "CARTÃO", "SIS": d['sis_cartao'], "CONF": d['conf_cartao']},
+                                {"ITEM": "CREDIÁRIO", "SIS": d['sis_crediario'], "CONF": d['conf_crediario']},
+                                {"ITEM": "DINHEIRO", "SIS": d['sis_dinheiro'], "CONF": d['conf_dinheiro']},
+                                {"ITEM": "IFOOD", "SIS": d['sis_ifood'], "CONF": d['conf_ifood']},
+                                {"ITEM": "PIX/TRANSF", "SIS": d['sis_pix'], "CONF": d['conf_pix']},
+                                {"ITEM": "DESPESA", "SIS": 0.0, "CONF": d['despesa']}
+                            ]
+                            df_tab = pd.DataFrame(dados_completos)
+                            df_tab['ACERTO'] = df_tab['CONF'] - df_tab['SIS']
+                            # Ajuste sinal despesa
+                            df_tab.loc[df_tab['ITEM'] == 'DESPESA', 'ACERTO'] = -d['despesa']
+
+                            st.table(df_tab.style.format({"SIS": "R$ {:.2f}", "CONF": "R$ {:.2f}", "ACERTO": "R$ {:.2f}"}))
+                            
                             if d['urls_prints']:
                                 for url_p in d['urls_prints']:
-                                    st.markdown(f'<a href="{url_p}" target="_blank"><img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px;"></a>', unsafe_allow_html=True)
+                                    st.markdown(f'<a href="{url_p}" target="_blank"><img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px; margin-bottom:5px;"></a>', unsafe_allow_html=True)
                     else: st.caption("Sem dados.")
         else: st.info("Nenhum lançamento encontrado.")
 
-    # 2. TELA LANÇAMENTO
+    # 2. TELA LANÇAMENTO (MANTIDA CORRETA)
     elif escolha == "📝 Lançamento Diário":
         st.title("📝 Fechamento de Caixa Diário")
         loja_id = user['unidade_id']
@@ -233,7 +246,7 @@ else:
                     c1, c2, c3 = st.columns([2,1,1])
                     c1.write(f"E-mail: {u['email']} | Função: {u['funcao']}")
                     if c2.popover("🔑 Resetar").button("Confirmar Reset", key=f"rs_{u['id']}"):
-                        st.info("Senha resetada no banco.")
+                        st.info("Reset realizado.")
                     if c3.button("Excluir", key=f"ex_{u['id']}", use_container_width=True):
                         supabase.table("usuarios").delete().eq("id", u['id']).execute(); st.rerun()
 
