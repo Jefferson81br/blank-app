@@ -124,7 +124,19 @@ else:
                     with col2:
                         if st.button("Nova Senha", key=f"pass_{u['id']}"):
                             # Lógica para resetar senha (veremos a seguir)
-                            st.info("Função em desenvolvimento")
+                            # Dentro do menu "Consultar Usuários", no expander de cada usuário 'u'
+    with col2:
+        # Usamos uma chave única para o formulário de cada usuário
+        com_reset = st.popover("🔑 Resetar Senha")
+        with com_reset:
+            nova_senha_admin = st.text_input("Nova senha para o usuário", type="password", key=f"new_pass_{u['id']}")
+            if st.button("Confirmar Reset", key=f"btn_res_{u['id']}"):
+                if nova_senha_admin:
+                    novo_hash_admin = auth.gerar_hash_senha(nova_senha_admin)
+                    db.atualizar_senha_usuario(supabase, u['id'], novo_hash_admin)
+                    st.success(f"Senha de {u['username']} atualizada!")
+                else:
+                    st.error("Campo vazio.")
                             
                     with col3:
                         if st.button("Excluir", key=f"del_{u['id']}"):
