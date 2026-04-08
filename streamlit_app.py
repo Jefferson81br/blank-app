@@ -154,10 +154,10 @@ else:
                 email = st.text_input("E-mail")
                 novo_usuario = st.text_input("Login")
                 
-               # 1. Busca as lojas reais cadastradas no banco
-               res_lojas = db.buscar_lojas(supabase)
-               # Cria um dicionário { "Nome da Loja": ID_da_Loja }
-               dict_lojas = {l['nome']: l['id'] for l in res_lojas.data} if res_lojas.data else {}
+                # 1. Busca as lojas reais cadastradas no banco
+                res_lojas = db.buscar_lojas(supabase)
+                # Cria um dicionário { "Nome da Loja": ID_da_Loja }
+                dict_lojas = {l['nome']: l['id'] for l in res_lojas.data} if res_lojas.data else {}
 
             
             with col2:
