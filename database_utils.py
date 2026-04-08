@@ -57,3 +57,17 @@ def salvar_fechamento(supabase, dados):
     except Exception as e:
         st.error(f"Erro ao salvar fechamento: {e}")
         return None
+
+def buscar_fechamento_por_data(supabase, loja_id, data_inicio, data_fim):
+    """Busca lançamentos em um intervalo de datas para uma loja específica."""
+    try:
+        return supabase.table("fechamentos")\
+            .select("*")\
+            .eq("loja_id", loja_id)\
+            .gte("data_fechamento", data_inicio)\
+            .lte("data_fechamento", data_fim)\
+            .order("data_fechamento")\
+            .execute()
+    except Exception as e:
+        st.error(f"Erro ao buscar dados: {e}")
+        return None
