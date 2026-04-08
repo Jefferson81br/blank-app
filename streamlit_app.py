@@ -153,11 +153,20 @@ else:
                 nome = st.text_input("Nome")
                 email = st.text_input("E-mail")
                 novo_usuario = st.text_input("Login")
+                
+               # 1. Busca as lojas reais cadastradas no banco
+               res_lojas = db.buscar_lojas(supabase)
+               # Cria um dicionário { "Nome da Loja": ID_da_Loja }
+               dict_lojas = {l['nome']: l['id'] for l in res_lojas.data} if res_lojas.data else {}
+
+            
             with col2:
                 sobrenome = st.text_input("Sobrenome")
-                loja = st.selectbox("Unidade", [1, 2, 3, 4, 5, 6, 7, 8, "N/A"])
+                # 2. Mostra o nome da loja, mas salva o ID
+                loja_selecionada = st.selectbox("Unidade", ["Nenhuma (Admin/Prop.)"] + list(dict_lojas.keys()))
                 nova_senha_cad = st.text_input("Senha Inicial", type="password")
-            
+                # ... (dentro da lógica do botão de cadastrar)
+                id_da_loja_final = dict_lojas.get(loja_selecionada) # Pega o ID ou None se for "Nenhuma"
             funcao_cad = st.selectbox("Nível", ["gerente", "proprietario", "financeiro", "admin"])
             if st.form_submit_button("Finalizar Cadastro", use_container_width=True):
                 if nome and novo_usuario and nova_senha_cad:
