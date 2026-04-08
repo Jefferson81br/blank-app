@@ -14,14 +14,12 @@ st.markdown("""
         .stApp { background-color: #000000; }
         [data-testid="stSidebar"] { background-color: #0d0d0d; border-right: 1px solid #333333; }
         
-        /* Forçar campos de input a ficarem escuros */
         input[type=number], input[type=text], input[type=password], .stTextArea textarea {
             background-color: #1a1a1a !important;
             color: #ffffff !important;
             border: 1px solid #333333 !important;
         }
 
-        /* REMOVER BOTÕES + e - de todos os navegadores */
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
             -webkit-appearance: none !important;
             margin: 0 !important;
@@ -29,11 +27,9 @@ st.markdown("""
         input[type=number] { -moz-appearance: textfield !important; }
         button[step="up"], button[step="down"], .stNumberInput button { display: none !important; }
 
-        /* Estilo para expanders, forms e botões */
         .st-expander, .stForm { border: 1px solid #333333 !important; background-color: #0d0d0d !important; }
         .stButton>button { border: 1px solid #333333; background-color: #1a1a1a; color: white; }
         
-        /* Ajuste para st.table no tema escuro */
         .stTable { background-color: #0d0d0d; color: white; }
     </style>
     """, unsafe_allow_html=True)
@@ -126,10 +122,9 @@ else:
             if res and res.data:
                 df_raw = pd.DataFrame(res.data)
                 
-                # VISUALIZAÇÃO POR DIA (ESTILO PLANILHA)
                 if periodo == "Dia":
                     d = res.data[0]
-                    st.markdown(f"### LOJA: {user.get('nome_loja', 'Unidade Selecionada')}")
+                    st.markdown(f"### DETALHAMENTO DO DIA: {pd.to_datetime(d['data_fechamento']).strftime('%d/%m/%Y')}")
                     
                     dados_tabela = [
                         {"DESCRIÇÃO": "CARTÃO", "VALOR SISTEMA": d['sis_cartao'], "VALOR DE CONFERENCIA": d['conf_cartao']},
@@ -144,13 +139,8 @@ else:
                     df_tab['ACERTO'] = df_tab['VALOR DE CONFERENCIA'] - df_tab['VALOR SISTEMA']
                     df_tab.loc[df_tab['DESCRIÇÃO'] == 'DESPESA', 'ACERTO'] = -d['despesa']
 
-                    st.table(df_tab.style.format({
-                        "VALOR SISTEMA": "R$ {:.2f}", 
-                        "VALOR DE CONFERENCIA": "R$ {:.2f}", 
-                        "ACERTO": "R$ {:.2f}"
-                    }))
+                    st.table(df_tab.style.format({"VALOR SISTEMA": "R$ {:.2f}", "VALOR DE CONFERENCIA": "R$ {:.2f}", "ACERTO": "R$ {:.2f}"}))
 
-                    # TOTAIS
                     t_sis = df_tab['VALOR SISTEMA'].sum()
                     t_conf = df_tab['VALOR DE CONFERENCIA'].sum()
                     t_ace = t_conf - t_sis - (d['despesa'] * 2)
@@ -163,17 +153,12 @@ else:
 
                     if d['urls_prints']:
                         st.write("---")
-                        st.write("**📸 Comprovantes (150x150):**")
+                        st.write("**📸 Comprovantes Anexados:**")
                         cols_p = st.columns(len(d['urls_prints']))
                         for i, url_p in enumerate(d['urls_prints']):
-                            cols_p[i].markdown(f"""
-                                <a href="{url_p}" target="_blank">
-                                    <img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px; border: 1px solid #333;">
-                                </a>
-                            """, unsafe_allow_html=True)
+                            cols_p[i].markdown(f'<a href="{url_p}" target="_blank"><img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px; border: 1px solid #333;"></a>', unsafe_allow_html=True)
                 
                 else:
-                    # VISUALIZAÇÃO ACUMULADA (MÉTRICAS)
                     tot_sis = df_raw[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
                     tot_conf = df_raw[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
                     tot_desp = df_raw['despesa'].sum()
@@ -231,15 +216,28 @@ else:
             imgs = st.file_uploader("Prints", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
             obs = st.text_area("Obs")
             if st.form_submit_button("✅ SALVAR NO BANCO", use_container_width=True):
-                with st.spinner("Salvando..."):
-                    urls = []
-                    for i, f in enumerate(imgs):
-                        url_f = db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
-                        if url_f: urls.append(url_f)
-                    db.salvar_fechamento(supabase, {
+                with st.spinner("Verificando e salvando..."):
+                    # 1. Tentar salvar primeiro os dados (para validar Unique Key antes do upload pesado)
+                    dados_insert = {
                         "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
                         "sis_cartao": s_car, "conf_cartao": c_car, "sis_crediario": s_cre, "conf_crediario": c_cre,
                         "sis_dinheiro": s_din, "conf_dinheiro": c_din, "sis_ifood": s_ifo, "conf_ifood": c_ifo,
-                        "sis_pix": s_pix, "conf_pix": c_pix, "despesa": v_desp, "observacoes": obs, "urls_prints": urls
-                    })
-                    st.success("Sucesso!"); st.balloons()
+                        "sis_pix": s_pix, "conf_pix": c_pix, "despesa": v_desp, "observacoes": obs, "urls_prints": []
+                    }
+                    
+                    sucesso_db, res_msg = db.salvar_fechamento(supabase, dados_insert)
+                    
+                    if sucesso_db:
+                        # 2. Se salvou os dados, agora fazemos o upload das imagens e atualizamos o registro
+                        urls = []
+                        for i, f in enumerate(imgs):
+                            url_f = db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
+                            if url_f: urls.append(url_f)
+                        
+                        if urls:
+                            supabase.table("fechamentos").update({"urls_prints": urls}).eq("id", res_msg.data[0]['id']).execute()
+                        
+                        st.success("✅ Fechamento salvo com sucesso!")
+                        st.balloons()
+                    else:
+                        st.error(f"❌ Erro: {res_msg}")
