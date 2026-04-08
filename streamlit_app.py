@@ -178,7 +178,7 @@ else:
 
     # 2. TELA LANÇAMENTO (MANTIDA CORRETA)
     elif escolha == "📝 Lançamento Diário":
-        lancamento_view.renderizar_tela(supabase, user)
+         lancamento_view.renderizar_tela(supabase, user)
 
     # 3. TELA ADICIONAR USUÁRIO
     elif escolha == "➕ Adicionar Usuário":
