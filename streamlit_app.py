@@ -176,77 +176,78 @@ else:
                 if st.form_submit_button("Salvar"):
                     db.cadastrar_loja(supabase, {"nome":nl, "marca":ml, "endereco":el})
                     st.rerun()
+                    
     elif escolha == "📝 Lançamento Diário":
-    st.title("📝 Fechamento de Caixa Diário")
+        st.title("📝 Fechamento de Caixa Diário")
     
-    loja_id = user['unidade_id']
-    if not loja_id:
-        st.error("Usuário sem loja vinculada.")
-        st.stop()
+        loja_id = user['unidade_id']
+        if not loja_id:
+            st.error("Usuário sem loja vinculada.")
+            st.stop()
 
     # --- CAMPOS FORA DO FORMULÁRIO PARA CÁLCULO EM TEMPO REAL ---
     # Usamos colunas para organizar o cabeçalho
-    st.date_input("Data do Movimento", key="data_mov")
-    st.write("---")
+        st.date_input("Data do Movimento", key="data_mov")
+        st.write("---")
     
-    h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
-    h1.write("**DESCRIÇÃO**")
-    h2.write("**VALOR SISTEMA**")
-    h3.write("**CONFERÊNCIA**")
-    h4.write("**ACERTO**")
+        h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
+        h1.write("**DESCRIÇÃO**")
+        h2.write("**VALOR SISTEMA**")
+        h3.write("**CONFERÊNCIA**")
+        h4.write("**ACERTO**")
 
     # Função interna para gerar as linhas com cálculos vivos
-    def gerar_linha_viva(label, chave):
-        col_desc, col_sis, col_conf, col_acer = st.columns([2, 2, 2, 1.5])
-        col_desc.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
+        def gerar_linha_viva(label, chave):
+            col_desc, col_sis, col_conf, col_acer = st.columns([2, 2, 2, 1.5])
+            col_desc.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
         
         # step=None remove os botões de + e - em alguns navegadores e impede o incremento
-        val_sis = col_sis.number_input("R$", key=f"s_{chave}", format="%.2f", step=0.01, label_visibility="collapsed")
-        val_conf = col_conf.number_input("R$", key=f"c_{chave}", format="%.2f", step=0.01, label_visibility="collapsed")
+            val_sis = col_sis.number_input("R$", key=f"s_{chave}", format="%.2f", step=0.01, label_visibility="collapsed")
+            val_conf = col_conf.number_input("R$", key=f"c_{chave}", format="%.2f", step=0.01, label_visibility="collapsed")
         
-        acerto = val_conf - val_sis
-        cor = "white" if acerto == 0 else ("#ff4b4b" if acerto < 0 else "#00ff00")
+            acerto = val_conf - val_sis
+            cor = "white" if acerto == 0 else ("#ff4b4b" if acerto < 0 else "#00ff00")
         
-        col_acer.markdown(f"""
-            <div style='padding-top:10px; color:{cor}; font-weight:bold;'>
-                R$ {acerto:.2f}
-            </div>
-        """, unsafe_allow_html=True)
-        return val_sis, val_conf, acerto
+            col_acer.markdown(f"""
+                <div style='padding-top:10px; color:{cor}; font-weight:bold;'>
+                    R$ {acerto:.2f}
+                </div>
+            """, unsafe_allow_html=True)
+            return val_sis, val_conf, acerto
 
     # Gerando as linhas e capturando os valores vivos
-    s_cartao, c_cartao, a_cartao = gerar_linha_viva("CARTÃO", "cartao")
-    s_cred, c_cred, a_cred = gerar_linha_viva("CREDIÁRIO", "cred")
-    s_din, c_din, a_din = gerar_linha_viva("DINHEIRO", "din")
-    s_ifood, c_ifood, a_ifood = gerar_linha_viva("IFOOD", "ifood")
-    s_pix, c_pix, a_pix = gerar_linha_viva("PIX/TRANSF", "pix")
+        s_cartao, c_cartao, a_cartao = gerar_linha_viva("CARTÃO", "cartao")
+        s_cred, c_cred, a_cred = gerar_linha_viva("CREDIÁRIO", "cred")
+        s_din, c_din, a_din = gerar_linha_viva("DINHEIRO", "din")
+        s_ifood, c_ifood, a_ifood = gerar_linha_viva("IFOOD", "ifood")
+        s_pix, c_pix, a_pix = gerar_linha_viva("PIX/TRANSF", "pix")
     
-    st.write("---")
-    # Linha de Despesa
-    _, _, col_l_desp, col_v_desp = st.columns([2, 2, 2, 1.5])
-    col_l_desp.write("**DESPESA (-)**")
-    v_despesa = col_v_desp.number_input("R$", key="despesa_v", format="%.2f", step=0.01, label_visibility="collapsed")
+        st.write("---")
+        # Linha de Despesa
+        _, _, col_l_desp, col_v_desp = st.columns([2, 2, 2, 1.5])
+        col_l_desp.write("**DESPESA (-)**")
+        v_despesa = col_v_desp.number_input("R$", key="despesa_v", format="%.2f", step=0.01, label_visibility="collapsed")
 
-    # CÁLCULO DO TOTAL FINAL (Igual à sua planilha)
-    total_sistema = s_cartao + s_cred + s_din + s_ifood + s_pix
-    total_conf = c_cartao + c_cred + c_din + c_ifood + c_pix + v_despesa # Somando despesa como valor de saída conferido
-    total_acerto = a_cartao + a_cred + a_din + a_ifood + a_pix - v_despesa
+        # CÁLCULO DO TOTAL FINAL (Igual à sua planilha)
+        total_sistema = s_cartao + s_cred + s_din + s_ifood + s_pix
+        total_conf = c_cartao + c_cred + c_din + c_ifood + c_pix + v_despesa # Somando despesa como valor de saída conferido
+        total_acerto = a_cartao + a_cred + a_din + a_ifood + a_pix - v_despesa
 
-    # EXIBIÇÃO DO TOTAL ESTILO PLANILHA
-    st.markdown("---")
-    t1, t2, t3, t4 = st.columns([2, 2, 2, 1.5])
-    t1.subheader("TOTAL")
-    t2.subheader(f"R$ {total_sistema:.2f}")
-    t3.subheader(f"R$ {total_conf:.2f}")
+        # EXIBIÇÃO DO TOTAL ESTILO PLANILHA
+        st.markdown("---")
+        t1, t2, t3, t4 = st.columns([2, 2, 2, 1.5])
+        t1.subheader("TOTAL")
+        t2.subheader(f"R$ {total_sistema:.2f}")
+        t3.subheader(f"R$ {total_conf:.2f}")
     
-    cor_total = "white" if total_acerto == 0 else ("#ff4b4b" if total_acerto < 0 else "#00ff00")
-    t4.markdown(f"<h3 style='color:{cor_total};'>R$ {total_acerto:.2f}</h3>", unsafe_allow_html=True)
+        cor_total = "white" if total_acerto == 0 else ("#ff4b4b" if total_acerto < 0 else "#00ff00")
+        t4.markdown(f"<h3 style='color:{cor_total};'>R$ {total_acerto:.2f}</h3>", unsafe_allow_html=True)
 
-    # --- ÁREA DE ENVIO (FORMULÁRIO APENAS PARA O BOTÃO E UPLOAD) ---
-    with st.form("form_finalizacao", clear_on_submit=True):
-        arquivos = st.file_uploader("Anexar Prints (Máx 5)", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
-        obs = st.text_area("Observações")
+        # --- ÁREA DE ENVIO (FORMULÁRIO APENAS PARA O BOTÃO E UPLOAD) ---
+        with st.form("form_finalizacao", clear_on_submit=True):
+            arquivos = st.file_uploader("Anexar Prints (Máx 5)", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
+            obs = st.text_area("Observações")
         
-        if st.form_submit_button("✅ SALVAR FECHAMENTO NO BANCO", use_container_width=True):
-            # Lógica de salvar (db.salvar_fechamento...) usando as variáveis acima
-            pass
+            if st.form_submit_button("✅ SALVAR FECHAMENTO NO BANCO", use_container_width=True):
+                # Lógica de salvar (db.salvar_fechamento...) usando as variáveis acima
+                pass
