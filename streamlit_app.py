@@ -230,8 +230,44 @@ else:
             btn_enviar = st.form_submit_button("✅ Finalizar e Salvar Fechamento", use_container_width=True)
 
             if btn_enviar:
-                if not data_sel:
-                    st.error("Selecione a data do movimento!")
-                else:
-                    # Aqui entra a lógica de salvar no Supabase
-                    st.success(f"Dados validados para o dia {data_sel}! Pronto para salvar.")
+            if not data_sel:
+                st.error("Selecione a data do movimento!")
+            else:
+                with st.spinner("Salvando dados e imagens..."):
+                    lista_urls = []
+                    
+                    # 1. Processar e fazer upload dos prints
+                    for i, foto in enumerate(arquivos):
+                        # Criamos um nome único: id_loja/data/foto1.png
+                        extensao = foto.name.split('.')[-1]
+                        caminho = f"loja_{loja_id}/{data_sel}/print_{i}.{extensao}"
+                        
+                        url_foto = db.fazer_upload_print(supabase, foto, caminho)
+                        if url_foto:
+                            lista_urls.append(url_foto)
+
+                    # 2. Montar o dicionário com todos os campos da sua planilha
+                    dados_fechamento = {
+                        "loja_id": loja_id,
+                        "usuario_id": user['id'],
+                        "data_fechamento": str(data_sel),
+                        "sis_cartao": v_sis_cartao,
+                        "conf_cartao": v_conf_cartao,
+                        "sis_crediario": v_sis_cred,
+                        "conf_crediario": v_conf_cred,
+                        "sis_dinheiro": v_sis_din,
+                        "conf_dinheiro": v_conf_din,
+                        "sis_ifood": v_sis_ifood,
+                        "conf_ifood": v_conf_ifood,
+                        "sis_pix": v_sis_pix,
+                        "conf_pix": v_conf_pix,
+                        "despesa": v_despesa,
+                        "observacoes": obs,
+                        "urls_prints": lista_urls
+                    }
+
+                    # 3. Salvar no Banco
+                    sucesso = db.salvar_fechamento(supabase, dados_fechamento)
+                    if sucesso:
+                        st.success("✅ Fechamento salvo com sucesso!")
+                        st.balloons()
