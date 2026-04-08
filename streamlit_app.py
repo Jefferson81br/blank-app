@@ -3,6 +3,39 @@ from supabase import create_client, Client
 import database_utils as db  # Importa suas funções de banco
 import auth_utils as auth    # Importa sua lógica de senha
 
+
+# Configuração de página para forçar o layout e favicon
+st.set_page_config(page_title="Gestão de Farmácias", layout="wide", initial_sidebar_state="expanded")
+
+# CSS para forçar o fundo preto e remover bordas brancas
+st.markdown("""
+    <style>
+        /* Fundo principal */
+        .stApp {
+            background-color: #000000;
+        }
+        
+        /* Fundo da Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #0d0d0d;
+            border-right: 1px solid #333333;
+        }
+        
+        /* Ajuste de botões para o tema escuro */
+        .stButton>button {
+            border: 1px solid #333333;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        
+        /* Estilo para os expanders e formulários */
+        .st-expander, .stForm {
+            border: 1px solid #333333 !important;
+            background-color: #0d0d0d !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
 # 1. Configuração da Conexão
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
