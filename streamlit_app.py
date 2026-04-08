@@ -176,3 +176,62 @@ else:
                 if st.form_submit_button("Salvar"):
                     db.cadastrar_loja(supabase, {"nome":nl, "marca":ml, "endereco":el})
                     st.rerun()
+    elif escolha == "📝 Lançamento Diário":
+        st.title("📝 Fechamento de Caixa Diário")
+    
+        # O gerente só lança para a loja dele
+        loja_id = user['unidade_id']
+        if not loja_id:
+            st.error("Seu usuário não está vinculado a nenhuma loja. Contate o Admin.")
+            st.stop()
+
+        with st.form("form_fechamento"):
+            c1, c2 = st.columns([1, 1])
+            data_sel = c1.date_input("Data do Movimento", value=None)
+            st.write("---")
+        
+            # Cabeçalhos
+            h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
+            h1.write("**Descrição**")
+            h2.write("**Valor Sistema**")
+            h3.write("**Conferência**")
+            h4.write("**Acerto**")
+
+        # Função auxiliar para criar as linhas de input
+            def criar_linha_fechamento(label):
+                col_desc, col_sis, col_conf, col_acer = st.columns([2, 2, 2, 1.5])
+                col_desc.write(f"**{label}**")
+                val_sis = col_sis.number_input("R$", key=f"sis_{label}", format="%.2f", step=0.01, label_visibility="collapsed")
+                val_conf = col_conf.number_input("R$", key=f"conf_{label}", format="%.2f", step=0.01, label_visibility="collapsed")
+                acerto = val_conf - val_sis
+            
+                # Cor do acerto (Verde se bater, Vermelho se faltar, Azul se sobrar)
+                cor = "white" if acerto == 0 else ("#ff4b4b" if acerto < 0 else "#00ff00")
+                col_acer.markdown(f"<p style='color:{cor}; font-weight:bold;'>R$ {acerto:.2f}</p>", unsafe_allow_html=True)
+                return val_sis, val_conf
+
+            v_sis_cartao, v_conf_cartao = criar_linha_fechamento("CARTÃO")
+            v_sis_cred, v_conf_cred = criar_linha_fechamento("CREDIÁRIO")
+            v_sis_din, v_conf_din = criar_linha_fechamento("DINHEIRO")
+            v_sis_ifood, v_conf_ifood = criar_linha_fechamento("IFOOD")
+            v_sis_pix, v_conf_pix = criar_linha_fechamento("PIX/TRANSF")
+        
+            st.write("---")
+            _, _, col_label_desp, col_val_desp = st.columns([2, 2, 2, 1.5])
+            col_label_desp.write("**DESPESA (-)**")
+            v_despesa = col_val_desp.number_input("R$", key="despesa", format="%.2f", label_visibility="collapsed")
+        
+            st.write("---")
+            # Upload de arquivos (Prints)
+            arquivos = st.file_uploader("Anexar Prints do Sistema (Até 5 fotos)", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
+        
+            obs = st.text_area("Observações do dia")
+        
+            btn_enviar = st.form_submit_button("✅ Finalizar e Salvar Fechamento", use_container_width=True)
+
+            if btn_enviar:
+                if not data_sel:
+                    st.error("Selecione a data do movimento!")
+                else:
+                    # Aqui entra a lógica de salvar no Supabase
+                    st.success(f"Dados validados para o dia {data_sel}! Pronto para salvar.")
