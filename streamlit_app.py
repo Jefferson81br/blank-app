@@ -52,33 +52,32 @@ if 'pagina_ativa' not in st.session_state:
 # --- FLUXO DE TELAS ---
 
 if not st.session_state.autenticado:
-    # TELA DE LOGIN
-    st.title("💊 Farma Gestor 1.0")
-    
-    with st.container():
-        user_input = st.text_input("Usuário")
-        pass_input = st.text_input("Senha", type="password")
+    # Criamos 3 colunas: as das pontas vazias e a do meio com o conteúdo
+    # O ratio [1, 2, 1] faz a coluna do meio ter 50% da largura da tela
+    vazia_esq, centro, vazia_dir = st.columns([1, 2, 1])
+
+    with centro:
+        st.markdown("<br><br>", unsafe_allow_html=True) # Espaçamento no topo
+        st.title("💊 Farma Gestor 1.0")
         
-        if st.button("Entrar", use_container_width=True):
-            res = db.buscar_usuario(supabase, user_input)
+        # Usamos um container ou um form para agrupar visualmente
+        with st.container(border=True):
+            user_input = st.text_input("Usuário")
+            pass_input = st.text_input("Senha", type="password")
             
-            if res and res.data:
-                user = res.data[0]
-                # Verifica a senha usando o módulo de segurança
-                if auth.verificar_senha(pass_input, user['senha_hash']):
-                    st.session_state.autenticado = True
-                    st.session_state.user_data = user
-                    st.rerun()
-                else:
-                    # Fallback para senhas em texto puro (Admin inicial)
-                    if pass_input == user['senha_hash']:
-                       st.session_state.autenticado = True
-                       st.session_state.user_data = user
-                       st.rerun()
+            if st.button("Entrar", use_container_width=True):
+                res = db.buscar_usuario(supabase, user_input)
+                
+                if res and res.data:
+                    user = res.data[0]
+                    if auth.verificar_senha(pass_input, user['senha_hash']) or pass_input == user['senha_hash']:
+                        st.session_state.autenticado = True
+                        st.session_state.user_data = user
+                        st.rerun()
                     else:
-                       st.error("Senha incorreta.")
-            else:
-                st.error("Usuário não encontrado.")
+                        st.error("Senha incorreta.")
+                else:
+                    st.error("Usuário não encontrado.")
 
 else:
     # SISTEMA APÓS LOGIN
