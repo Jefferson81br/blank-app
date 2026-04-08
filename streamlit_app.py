@@ -32,6 +32,9 @@ st.markdown("""
         /* Estilo para expanders, forms e botões */
         .st-expander, .stForm { border: 1px solid #333333 !important; background-color: #0d0d0d !important; }
         .stButton>button { border: 1px solid #333333; background-color: #1a1a1a; color: white; }
+        
+        /* Ajuste para st.table no tema escuro */
+        .stTable { background-color: #0d0d0d; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -104,7 +107,6 @@ else:
         if not loja_id and user['funcao'] != 'admin':
             st.warning("Usuário sem loja vinculada.")
         else:
-            # Filtros de Período
             c1, c2 = st.columns(2)
             periodo = c1.selectbox("Período:", ["Dia", "Semana", "Mês"])
             hoje = date.today()
@@ -115,34 +117,73 @@ else:
             elif periodo == "Semana":
                 d_ini = hoje - timedelta(days=hoje.weekday())
                 d_fim = hoje
-                st.caption(f"De {d_ini.strftime('%d/%m')} até hoje")
             else:
                 d_ini = hoje.replace(day=1)
                 d_fim = hoje
-                st.caption(f"Mês de {d_ini.strftime('%B/%Y')}")
 
-            # Busca de Dados
             res = db.buscar_fechamento_por_data(supabase, loja_id, str(d_ini), str(d_fim))
             
             if res and res.data:
-                df = pd.DataFrame(res.data)
-                tot_sis = df[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
-                tot_conf = df[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
-                tot_desp = df['despesa'].sum()
-                tot_acer = tot_conf - tot_sis - (tot_desp * 2)
+                df_raw = pd.DataFrame(res.data)
+                
+                # VISUALIZAÇÃO POR DIA (ESTILO PLANILHA)
+                if periodo == "Dia":
+                    d = res.data[0]
+                    st.markdown(f"### LOJA: {user.get('nome_loja', 'Unidade Selecionada')}")
+                    
+                    dados_tabela = [
+                        {"DESCRIÇÃO": "CARTÃO", "VALOR SISTEMA": d['sis_cartao'], "VALOR DE CONFERENCIA": d['conf_cartao']},
+                        {"DESCRIÇÃO": "CREDIÁRIO", "VALOR SISTEMA": d['sis_crediario'], "VALOR DE CONFERENCIA": d['conf_crediario']},
+                        {"DESCRIÇÃO": "DINHEIRO", "VALOR SISTEMA": d['sis_dinheiro'], "VALOR DE CONFERENCIA": d['conf_dinheiro']},
+                        {"DESCRIÇÃO": "IFOOD", "VALOR SISTEMA": d['sis_ifood'], "VALOR DE CONFERENCIA": d['conf_ifood']},
+                        {"DESCRIÇÃO": "PIX TRANSF", "VALOR SISTEMA": d['sis_pix'], "VALOR DE CONFERENCIA": d['conf_pix']},
+                        {"DESCRIÇÃO": "DESPESA", "VALOR SISTEMA": 0.0, "VALOR DE CONFERENCIA": d['despesa']}
+                    ]
+                    
+                    df_tab = pd.DataFrame(dados_tabela)
+                    df_tab['ACERTO'] = df_tab['VALOR DE CONFERENCIA'] - df_tab['VALOR SISTEMA']
+                    df_tab.loc[df_tab['DESCRIÇÃO'] == 'DESPESA', 'ACERTO'] = -d['despesa']
 
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Sistema", f"R$ {tot_sis:,.2f}")
-                m2.metric("Conferido", f"R$ {tot_conf:,.2f}")
-                m3.metric("Despesas", f"R$ {tot_desp:,.2f}")
-                m4.metric("Acerto", f"R$ {tot_acer:,.2f}", delta=f"{tot_acer:,.2f}")
+                    st.table(df_tab.style.format({
+                        "VALOR SISTEMA": "R$ {:.2f}", 
+                        "VALOR DE CONFERENCIA": "R$ {:.2f}", 
+                        "ACERTO": "R$ {:.2f}"
+                    }))
 
-                if periodo == "Dia" and res.data[0]['urls_prints']:
-                    st.write("---")
-                    st.subheader("🖼️ Comprovantes")
-                    cols = st.columns(len(res.data[0]['urls_prints']))
-                    for i, url_p in enumerate(res.data[0]['urls_prints']):
-                        cols[i].image(url_p, use_container_width=True)
+                    # TOTAIS
+                    t_sis = df_tab['VALOR SISTEMA'].sum()
+                    t_conf = df_tab['VALOR DE CONFERENCIA'].sum()
+                    t_ace = t_conf - t_sis - (d['despesa'] * 2)
+                    
+                    c_t1, c_t2, c_t3 = st.columns([2, 2, 1.5])
+                    c_t1.subheader("TOTAL")
+                    c_t2.subheader(f"R$ {t_sis:,.2f} | R$ {t_conf:,.2f}")
+                    cor_f = "#ff4b4b" if t_ace < 0 else "#00ff00"
+                    c_t3.markdown(f"<h3 style='color:{cor_f};'>R$ {t_ace:,.2f}</h3>", unsafe_allow_html=True)
+
+                    if d['urls_prints']:
+                        st.write("---")
+                        st.write("**📸 Comprovantes (150x150):**")
+                        cols_p = st.columns(len(d['urls_prints']))
+                        for i, url_p in enumerate(d['urls_prints']):
+                            cols_p[i].markdown(f"""
+                                <a href="{url_p}" target="_blank">
+                                    <img src="{url_p}" width="150" height="150" style="object-fit: cover; border-radius: 5px; border: 1px solid #333;">
+                                </a>
+                            """, unsafe_allow_html=True)
+                
+                else:
+                    # VISUALIZAÇÃO ACUMULADA (MÉTRICAS)
+                    tot_sis = df_raw[['sis_cartao', 'sis_crediario', 'sis_dinheiro', 'sis_ifood', 'sis_pix']].values.sum()
+                    tot_conf = df_raw[['conf_cartao', 'conf_crediario', 'conf_dinheiro', 'conf_ifood', 'conf_pix', 'despesa']].values.sum()
+                    tot_desp = df_raw['despesa'].sum()
+                    tot_acer = tot_conf - tot_sis - (tot_desp * 2)
+
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("Sistema", f"R$ {tot_sis:,.2f}")
+                    m2.metric("Conferido", f"R$ {tot_conf:,.2f}")
+                    m3.metric("Despesas", f"R$ {tot_desp:,.2f}")
+                    m4.metric("Acerto", f"R$ {tot_acer:,.2f}", delta=f"{tot_acer:,.2f}")
             else:
                 st.info("Nenhum dado encontrado para este período.")
 
@@ -202,7 +243,3 @@ else:
                         "sis_pix": s_pix, "conf_pix": c_pix, "despesa": v_desp, "observacoes": obs, "urls_prints": urls
                     })
                     st.success("Sucesso!"); st.balloons()
-
-    elif escolha == "➕ Adicionar Usuário":
-        st.title("➕ Novo Usuário")
-        # ... (Mantido o código de cadastro anterior)
