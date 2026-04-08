@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 import database_utils as db  # Importa suas funções de banco
 import auth_utils as auth    # Importa sua lógica de senha
+import lancamento_view  # Importa o novo arquivo que você criou
 from datetime import date, timedelta
 import pandas as pd
 
