@@ -54,7 +54,7 @@ if 'pagina_ativa' not in st.session_state:
 if not st.session_state.autenticado:
     # Criamos 3 colunas: as das pontas vazias e a do meio com o conteúdo
     # O ratio [1, 2, 1] faz a coluna do meio ter 50% da largura da tela
-    vazia_esq, centro, vazia_dir = st.columns([1, 2, 1])
+    vazia_esq, centro, vazia_dir = st.columns([1, 1, 1])
 
     with centro:
         st.markdown("<br><br>", unsafe_allow_html=True) # Espaçamento no topo
