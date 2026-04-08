@@ -1,11 +1,3 @@
-/* Esconde os botões de incrementar/decrementar do number_input */
-button.step-up, button.step-down {
-    display: none;
-}
-input[type=number] {
-    -moz-appearance: textfield;
-}
-
 [theme]
 primaryColor = "#00ff00"          # Um verde farmácia/neon para destacar
 backgroundColor = "#000000"       # Fundo Totalmente Preto
