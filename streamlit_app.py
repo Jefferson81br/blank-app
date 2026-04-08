@@ -227,7 +227,7 @@ else:
                                      "endereco": novo_end_l,
                                      "gerente_id": lista_gerentes[novo_gerente]
                                  }
-                                 db.atualizar_loja(supabase, loja.id, dados_update)
+                                 db.atualizar_loja(supabase, loja['id'], dados_update)
                                  st.success("Loja atualizada!")
                                  st.rerun()
 
