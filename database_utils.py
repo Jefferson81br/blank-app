@@ -27,3 +27,12 @@ def atualizar_senha_usuario(supabase, user_id, novo_hash):
     except Exception as e:
         st.error(f"Erro ao atualizar senha no banco: {e}")
         return None
+
+def buscar_lojas(supabase):
+    return supabase.table("lojas").select("*").order("nome").execute()
+
+def cadastrar_loja(supabase, dados):
+    return supabase.table("lojas").insert(dados).execute()
+
+def atualizar_loja(supabase, loja_id, dados):
+    return supabase.table("lojas").update(dados).eq("id", loja_id).execute()
