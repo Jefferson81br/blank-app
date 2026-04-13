@@ -3,9 +3,8 @@ from datetime import date, timedelta
 import database_utils as db
 
 def renderizar_tela(supabase, user):
-    # --- CENTRALIZAÇÃO DO CONTEÚDO ---
-    # Criamos 3 colunas. A do meio (com peso 2 ou 3) conterá o formulário.
-    # Ajuste o peso do meio (ex: [1, 2, 1] ou [1, 3, 1]) para controlar a largura.
+    # --- AJUSTE DE LARGURA E CENTRALIZAÇÃO ---
+    # Conforme seus testes, esta proporção foi a que melhor se adaptou ao monitor
     margem_esq, centro, margem_dir = st.columns([0.2, 2, 3])
 
     with centro:
@@ -21,7 +20,7 @@ def renderizar_tela(supabase, user):
             loja_id = user['unidade_id']
             if not loja_id: st.stop()
 
-        # --- STATUS ---
+        # --- STATUS DOS ÚLTIMOS 7 DIAS ---
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -36,11 +35,10 @@ def renderizar_tela(supabase, user):
         data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today())
         st.write("---")
         
-        # Cabeçalhos
+        # Cabeçalhos da Matriz
         c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
         c1.write("**DESCRIÇÃO**"); c2.write("**VALOR SISTEMA**"); c3.write("**CONFERÊNCIA**"); c4.write("**ACERTO**")
 
-        # Funções internas (linha_entrada e linha_saida) permanecem as mesmas
         def linha_entrada(label, key):
             col1, col2, col3, col4 = st.columns([2, 2, 2, 1.5])
             col1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
@@ -71,10 +69,12 @@ def renderizar_tela(supabase, user):
         sf, cf, af = linha_entrada("FARMÁCIAS APP", "fap")
         sl, cl, al = linha_entrada("VIDA LINK", "vli")
 
+        # Totais de Entrada
         t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
+        # Subtotal Entradas com Estilo
         st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
         st1, st2, st3, st4 = st.columns([2, 2, 2, 1.5])
         st1.write("**SUBTOTAL ENTRADAS**")
@@ -92,6 +92,7 @@ def renderizar_tela(supabase, user):
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
+        # Total Saídas
         st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
         ss1, ss2, ss3, ss4 = st.columns([2, 2, 2, 1.5])
         ss1.write("**TOTAL SAÍDAS**")
@@ -103,6 +104,7 @@ def renderizar_tela(supabase, user):
         st.divider()
         saldo = t_c_ent - t_c_sai
         
+        # Resumo de Fechamento e Saldo Final
         st.markdown("### 🏁 Resumo do Fechamento")
         res1, res2, res3 = st.columns(3)
         res1.metric("Entradas (Conf.)", f"R$ {t_c_ent:,.2f}")
@@ -118,10 +120,9 @@ def renderizar_tela(supabase, user):
         """, unsafe_allow_html=True)
 
         with st.form("f_final_new", clear_on_submit=True):
-            imgs = st.file_uploader("Prints", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
-            obs = st.text_area("Obs")
-            if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                # ... (resto da lógica de salvamento se mantém idêntica) ...
+            imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
+            obs = st.text_area("Observações")
+            if st.form_submit_button("✅ SALVAR FECHAMENTO NO BANCO", use_container_width=True):
                 dados = {
                     "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
                     "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
@@ -138,4 +139,7 @@ def renderizar_tela(supabase, user):
                     if imgs:
                         urls = [db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg") for i, f in enumerate(imgs)]
                         supabase.table("fechamentos").update({"urls_prints": [u for u in urls if u]}).eq("id", res.data[0]['id']).execute()
-                    st.success("Salvo!"); st.rerun()
+                    st.success("✅ Fechamento salvo com sucesso!")
+                    st.rerun()
+                else:
+                    st.error(f"Erro ao salvar: {res}")
