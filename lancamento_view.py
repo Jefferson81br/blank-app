@@ -56,6 +56,7 @@ def renderizar_tela(supabase, user):
     sc, cc, ac = linha_entrada("CARTÃO", "car")
     sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
     sd, cd, ad = linha_entrada("DINHEIRO", "din")
+    sb, cb, ab = linha_entrada("BOLETO", "bol") # <-- NOVO CAMPO
     si, ci, ai = linha_entrada("IFOOD", "ifo")
     sp, cp, ap = linha_entrada("PBM", "pbm")
     sx, cx, ax = linha_entrada("PIX / TRANSF", "pix")
@@ -63,18 +64,17 @@ def renderizar_tela(supabase, user):
     sf, cf, af = linha_entrada("FARMÁCIAS APP", "fap")
     sl, cl, al = linha_entrada("VIDA LINK", "vli")
 
-    t_s_ent = sc+sr+sd+si+sp+sx+sv+sf+sl
-    t_c_ent = cc+cr+cd+ci+cp+cx+cv+cf+cl
-    t_a_ent = ac+ar+ad+ai+ap+ax+av+af+al
+    # Cálculos atualizados com Boleto (sb, cb, ab)
+    t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
+    t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
+    t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
     # Subtotal Entradas com Cores
     st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
     st1, st2, st3, st4 = st.columns([2, 2, 2, 1.5])
     st1.write("**SUBTOTAL ENTRADAS**")
     st2.write(f"R$ {t_s_ent:,.2f}")
-    # Verde para Conferência
     st3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
-    # Vermelho para Acerto
     st4.markdown(f"<span style='color:#ff4b4b; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -87,12 +87,11 @@ def renderizar_tela(supabase, user):
     
     t_c_sai = c_des + c_vfu + c_dev + c_out
 
-    # Total Saídas (Verde conforme solicitado)
+    # Total Saídas
     st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
     ss1, ss2, ss3, ss4 = st.columns([2, 2, 2, 1.5])
     ss1.write("**TOTAL SAÍDAS**")
     ss2.write("-")
-    # Verde para Despesas
     ss3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</span>", unsafe_allow_html=True)
     ss4.write("-")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -100,13 +99,11 @@ def renderizar_tela(supabase, user):
     st.divider()
     saldo = t_c_ent - t_c_sai
     
-    # Resumo Final com Métrica de Saldo em Verde
     st.markdown("### 🏁 Resumo do Fechamento")
     res1, res2, res3 = st.columns(3)
     res1.metric("Entradas (Conf.)", f"R$ {t_c_ent:,.2f}")
     res2.metric("Total Saídas", f"R$ {t_c_sai:,.2f}")
     
-    # Saldo Final em Verde
     st.markdown(f"""
         <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
             <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
@@ -123,11 +120,13 @@ def renderizar_tela(supabase, user):
             dados = {
                 "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
                 "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_ifood": si, "conf_ifood": ci,
-                "sis_pbm": sp, "conf_pbm": cp, "sis_pix": sx, "conf_pix": cx,
-                "sis_vale_compra": sv, "conf_vale_compra": cv, "sis_fapp": sf, "conf_fapp": cf,
-                "sis_vlink": sl, "conf_vlink": cl, "conf_despesa": c_des, "conf_vale_func": c_vfu,
-                "conf_dev_cartao": c_dev, "conf_outros": c_out, "observacoes": obs
+                "sis_dinheiro": sd, "conf_dinheiro": cd, 
+                "sis_boleto": sb, "conf_boleto": cb, # <-- SALVANDO BOLETO NO BANCO
+                "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
+                "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
+                "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
+                "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
+                "conf_outros": c_out, "observacoes": obs
             }
             ok, res = db.salvar_fechamento(supabase, dados)
             if ok:
