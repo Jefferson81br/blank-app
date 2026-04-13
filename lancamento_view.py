@@ -6,7 +6,7 @@ def renderizar_tela(supabase, user):
     # --- CENTRALIZAÇÃO DO CONTEÚDO ---
     # Criamos 3 colunas. A do meio (com peso 2 ou 3) conterá o formulário.
     # Ajuste o peso do meio (ex: [1, 2, 1] ou [1, 3, 1]) para controlar a largura.
-    margem_esq, centro, margem_dir = st.columns([0.5, 3, 0.5])
+    margem_esq, centro, margem_dir = st.columns([0.2, 2, 3])
 
     with centro:
         st.title("📝 Lançamento de Caixa Diário")
