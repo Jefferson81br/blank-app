@@ -67,13 +67,15 @@ def renderizar_tela(supabase, user):
     t_c_ent = cc+cr+cd+ci+cp+cx+cv+cf+cl
     t_a_ent = ac+ar+ad+ai+ap+ax+av+af+al
 
-    # Subtotal Entradas
+    # Subtotal Entradas com Cores
     st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
     st1, st2, st3, st4 = st.columns([2, 2, 2, 1.5])
     st1.write("**SUBTOTAL ENTRADAS**")
     st2.write(f"R$ {t_s_ent:,.2f}")
-    st3.write(f"R$ {t_c_ent:,.2f}")
-    st4.write(f"R$ {t_a_ent:,.2f}")
+    # Verde para Conferência
+    st3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
+    # Vermelho para Acerto
+    st4.markdown(f"<span style='color:#ff4b4b; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("---")
@@ -85,21 +87,34 @@ def renderizar_tela(supabase, user):
     
     t_c_sai = c_des + c_vfu + c_dev + c_out
 
-    # Total Saídas
+    # Total Saídas (Verde conforme solicitado)
     st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
     ss1, ss2, ss3, ss4 = st.columns([2, 2, 2, 1.5])
     ss1.write("**TOTAL SAÍDAS**")
     ss2.write("-")
-    ss3.write(f"R$ {t_c_sai:,.2f}")
+    # Verde para Despesas
+    ss3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</span>", unsafe_allow_html=True)
     ss4.write("-")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.divider()
     saldo = t_c_ent - t_c_sai
+    
+    # Resumo Final com Métrica de Saldo em Verde
+    st.markdown("### 🏁 Resumo do Fechamento")
     res1, res2, res3 = st.columns(3)
     res1.metric("Entradas (Conf.)", f"R$ {t_c_ent:,.2f}")
     res2.metric("Total Saídas", f"R$ {t_c_sai:,.2f}")
-    res3.metric("SALDO FINAL CAIXA", f"R$ {saldo:,.2f}", delta=f"Acerto: {t_a_ent:,.2f}")
+    
+    # Saldo Final em Verde
+    st.markdown(f"""
+        <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
+            <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
+            <h2 style="margin:0; color:#00ff00;">R$ {saldo:,.2f}</h2>
+            <p style="margin:0; font-size:12px; color:#888;">Acerto de Entradas: R$ {t_a_ent:,.2f}</p>
+        </div>
+        <br>
+    """, unsafe_allow_html=True)
 
     with st.form("f_final_new", clear_on_submit=True):
         imgs = st.file_uploader("Prints", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
