@@ -2,8 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 import database_utils as db
 
-# --- FUNÇÕES DE INTERFACE (DEFINIDAS FORA PARA EVITAR ERROS DE BLOCO) ---
-
+# --- FUNÇÕES AUXILIARES ---
 def linha_entrada(label, key):
     c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
     c1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
@@ -23,13 +22,12 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
-    # Layout Principal (0.1, 2, 2) para equilibrar os dois lados
+    # Layout Principal
     margem_esq, centro, coluna_avisos = st.columns([0.1, 2, 2])
 
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
 
-    # Lógica de Loja
     if user['funcao'] == 'admin':
         with centro:
             loja_nome_sel = st.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
@@ -43,7 +41,7 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # Status dos 7 dias
+        # Status 7 dias
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -55,7 +53,7 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_gerente")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_principal")
         st.write("---")
         
         st.subheader("📥 Entradas")
@@ -95,20 +93,22 @@ def renderizar_tela(supabase, user):
         st.info("### 📖 Instruções\n1. Confira os valores.\n2. Anexe os prints.\n3. Justifique acertos vermelhos.")
         
         st.subheader("💬 Feedback do Financeiro")
-        try:
-            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).not.is_("replica_gestor", "null").order("data_fechamento", desc=True).limit(2).execute()
-            if fb.data:
-                for f in fb.data:
-                    with st.container(border=True):
-                        st.caption(f"Ref. {f['data_fechamento']}")
-                        st.write(f"**Gestor:** {f['replica_gestor']}")
-            else:
-                st.write("Nenhum feedback recente.")
-        except:
-            st.write("Aguardando novos feedbacks.")
+        
+        # Consulta simplificada para evitar SyntaxError na linha 99
+        query = supabase.table("fechamentos").select("data_fechamento, replica_gestor")
+        query = query.eq("loja_id", loja_id).not.is_("replica_gestor", "null")
+        fb_data = query.order("data_fechamento", desc=True).limit(2).execute()
+
+        if fb_data.data:
+            for f in fb_data.data:
+                with st.container(border=True):
+                    st.caption(f"Ref. {f['data_fechamento']}")
+                    st.write(f"**Gestor:** {f['replica_gestor']}")
+        else:
+            st.write("Nenhum feedback recente.")
 
         st.write("---")
-        with st.form("f_final_envio_gerente", clear_on_submit=True):
+        with st.form("f_final_envio_caixa", clear_on_submit=True):
             imgs = st.file_uploader("Prints do Dia", accept_multiple_files=True)
             obs = st.text_area("Suas Observações / Justificativas")
             if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
@@ -128,5 +128,3 @@ def renderizar_tela(supabase, user):
                         for i, f in enumerate(imgs):
                             db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
                     st.success("Salvo com sucesso!"); st.rerun()
-                else:
-                    st.error("Erro ao salvar dados.")
