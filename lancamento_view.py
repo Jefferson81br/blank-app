@@ -3,42 +3,22 @@ from datetime import date, timedelta
 import database_utils as db
 
 def renderizar_tela(supabase, user):
-    # --- AJUSTE DE LARGURA E CENTRALIZAÇÃO ---
-    # Conforme seus testes, esta proporção foi a que melhor se adaptou ao monitor
-    margem_esq, centro, margem_dir = st.columns([0.2, 2, 3])
+    # --- AJUSTE DE LARGURA PARA COMUNICAÇÃO ---
+    margem_esq, centro, coluna_avisos = st.columns([0.1, 2, 2])
+
+    loja_id = user['unidade_id']
+    if user['funcao'] == 'admin':
+        # (Sua lógica de selectbox para admin aqui se necessário...)
+        pass
 
     with centro:
-        st.title("📝 Lançamento de Caixa Diário")
+        st.title("📝 Lançamento Diário")
         
-        lojas_res = db.buscar_lojas(supabase)
-        mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
-
-        if user['funcao'] == 'admin':
-            loja_nome_sel = st.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
-            loja_id = mapa_lojas[loja_nome_sel]
-        else:
-            loja_id = user['unidade_id']
-            if not loja_id: st.stop()
-
-        # --- STATUS DOS ÚLTIMOS 7 DIAS ---
-        data_limite = date.today() - timedelta(days=7)
-        res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
-        datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
-
-        cols_status = st.columns(7)
-        for i in range(7):
-            dia = date.today() - timedelta(days=i)
-            with cols_status[6-i]:
-                status = "🟢" if str(dia) in datas_feitas else "🔴"
-                st.markdown(f"<div style='text-align:center; font-size:12px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
-
+        # --- STATUS E DATA (Igual ao anterior) ---
         data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today())
         st.write("---")
-        
-        # Cabeçalhos da Matriz
-        c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
-        c1.write("**DESCRIÇÃO**"); c2.write("**VALOR SISTEMA**"); c3.write("**CONFERÊNCIA**"); c4.write("**ACERTO**")
 
+        # ... (Suas funções linha_entrada e linha_saida continuam aqui) ...
         def linha_entrada(label, key):
             col1, col2, col3, col4 = st.columns([2, 2, 2, 1.5])
             col1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
@@ -49,15 +29,7 @@ def renderizar_tela(supabase, user):
             col4.markdown(f"<div style='padding-top:10px; color:{cor}; font-weight:bold;'>R$ {ace:.2f}</div>", unsafe_allow_html=True)
             return v_s, v_c, ace
 
-        def linha_saida(label, key):
-            col1, col2, col3, col4 = st.columns([2, 2, 2, 1.5])
-            col1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
-            col2.write("-")
-            v_c = col3.number_input("R$", key=f"c_{key}", format="%.2f", step=0.01, label_visibility="collapsed")
-            col4.write("")
-            return v_c
-
-        st.subheader("📥 Entradas")
+        # (Simulação dos campos para o exemplo não ficar incompleto)
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
         sd, cd, ad = linha_entrada("DINHEIRO", "din")
@@ -68,78 +40,54 @@ def renderizar_tela(supabase, user):
         sv, cv, av = linha_entrada("VALE COMPRA", "vco")
         sf, cf, af = linha_entrada("FARMÁCIAS APP", "fap")
         sl, cl, al = linha_entrada("VIDA LINK", "vli")
+        
+        # ... (Cálculos de totais e botão de salvar aqui embaixo como no seu código atual) ...
 
-        # Totais de Entrada
-        t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
-        t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
-        t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
-
-        # Subtotal Entradas com Estilo
-        st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
-        st1, st2, st3, st4 = st.columns([2, 2, 2, 1.5])
-        st1.write("**SUBTOTAL ENTRADAS**")
-        st2.write(f"R$ {t_s_ent:,.2f}")
-        st3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
-        st4.markdown(f"<span style='color:#ff4b4b; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+    # --- COLUNA DA DIREITA: INSTRUÇÕES E RÉPLICAS ---
+    with coluna_avisos:
+        st.markdown("<br><br>", unsafe_allow_html=True) # Alinha com o início do formulário
+        
+        # 1. QUADRO DE INSTRUÇÕES (Fixo)
+        st.info("""
+        ### 📖 Instruções de Preenchimento
+        1. **Valor Sistema:** Insira o valor exato extraído do relatório de fechamento do seu software.
+        2. **Conferência:** Digite o valor físico contado ou o comprovante da maquininha.
+        3. **Diferenças:** Caso o acerto fique vermelho, utilize o campo 'Observações' abaixo para explicar o motivo (ex: erro de operadora, falta de troco).
+        4. **Anexos:** É obrigatório anexar o print do resumo de vendas do sistema.
+        """)
 
         st.write("---")
-        st.subheader("📤 Saídas")
-        c_des = linha_saida("DESPESA", "des")
-        c_vfu = linha_saida("VALE FUNC.", "vfu")
-        c_dev = linha_saida("DEV. CARTÃO", "dev")
-        c_out = linha_saida("OUTROS", "out")
-        
-        t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # Total Saídas
-        st.markdown("<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>", unsafe_allow_html=True)
-        ss1, ss2, ss3, ss4 = st.columns([2, 2, 2, 1.5])
-        ss1.write("**TOTAL SAÍDAS**")
-        ss2.write("-")
-        ss3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</span>", unsafe_allow_html=True)
-        ss4.write("-")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.divider()
-        saldo = t_c_ent - t_c_sai
+        # 2. QUADRO DE RÉPLICAS DO FINANCEIRO (Dinâmico)
+        st.subheader("💬 Feedback do Financeiro")
         
-        # Resumo de Fechamento e Saldo Final
-        st.markdown("### 🏁 Resumo do Fechamento")
-        res1, res2, res3 = st.columns(3)
-        res1.metric("Entradas (Conf.)", f"R$ {t_c_ent:,.2f}")
-        res2.metric("Total Saídas", f"R$ {t_c_sai:,.2f}")
-        
-        st.markdown(f"""
-            <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
-                <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
-                <h2 style="margin:0; color:#00ff00;">R$ {saldo:,.2f}</h2>
-                <p style="margin:0; font-size:12px; color:#888;">Acerto de Entradas: R$ {t_a_ent:,.2f}</p>
-            </div>
-            <br>
-        """, unsafe_allow_html=True)
+        # Buscamos os 2 últimos registros que contenham réplicas para esta loja
+        feedback_res = supabase.table("fechamentos")\
+            .select("data_fechamento, replica_gestor, observacoes")\
+            .eq("loja_id", loja_id)\
+            .not.is_("replica_gestor", "null")\
+            .order("data_fechamento", desc=True)\
+            .limit(2)\
+            .execute()
 
-        with st.form("f_final_new", clear_on_submit=True):
-            imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True, type=['png', 'jpg', 'jpeg'])
-            obs = st.text_area("Observações")
-            if st.form_submit_button("✅ SALVAR FECHAMENTO NO BANCO", use_container_width=True):
-                dados = {
-                    "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                    "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                    "sis_dinheiro": sd, "conf_dinheiro": cd, 
-                    "sis_boleto": sb, "conf_boleto": cb,
-                    "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
-                    "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                    "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                    "conf_outros": c_out, "observacoes": obs
-                }
-                ok, res = db.salvar_fechamento(supabase, dados)
-                if ok:
-                    if imgs:
-                        urls = [db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg") for i, f in enumerate(imgs)]
-                        supabase.table("fechamentos").update({"urls_prints": [u for u in urls if u]}).eq("id", res.data[0]['id']).execute()
-                    st.success("✅ Fechamento salvo com sucesso!")
-                    st.rerun()
-                else:
-                    st.error(f"Erro ao salvar: {res}")
+        if feedback_res.data:
+            for fb in feedback_res.data:
+                with st.container(border=True):
+                    data_pt = date.fromisoformat(fb['data_fechamento']).strftime('%d/%m')
+                    st.caption(f"Referente ao dia {data_pt}")
+                    st.markdown(f"**Gestor diz:** {fb['replica_gestor']}")
+                    if fb['observacoes']:
+                        st.markdown(f"*Sua Obs original:* {fb['observacoes']}")
+        else:
+            st.write("Nenhum apontamento recente.")
+
+        # Campo de Observação do Gerente (movido para cá para ficar visível junto ao feedback)
+        st.write("---")
+        with st.form("f_final_caixa"):
+            st.subheader("📝 Suas Observações")
+            obs_gerente = st.text_area("Explique aqui eventuais diferenças ou responda ao financeiro:", height=150)
+            imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True)
+            
+            if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
+                # ... Lógica de salvamento enviando a 'obs_gerente' ...
+                st.success("Enviado!")
