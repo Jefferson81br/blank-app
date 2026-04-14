@@ -2,7 +2,6 @@ import streamlit as st
 from datetime import date, timedelta
 import database_utils as db
 
-# --- FUNÇÕES AUXILIARES ---
 def linha_entrada(label, key):
     c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
     c1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
@@ -22,7 +21,6 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
-    # Layout Principal
     margem_esq, centro, coluna_avisos = st.columns([0.1, 2, 2])
 
     lojas_res = db.buscar_lojas(supabase)
@@ -30,18 +28,15 @@ def renderizar_tela(supabase, user):
 
     if user['funcao'] == 'admin':
         with centro:
-            loja_nome_sel = st.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
+            loja_nome_sel = st.selectbox("Unidade:", options=list(mapa_lojas.keys()))
             loja_id = mapa_lojas[loja_nome_sel]
     else:
         loja_id = user['unidade_id']
-        if not loja_id:
-            st.error("Usuário sem loja vinculada.")
-            st.stop()
+        if not loja_id: st.stop()
 
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # Status 7 dias
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -50,10 +45,9 @@ def renderizar_tela(supabase, user):
         for i in range(7):
             dia = date.today() - timedelta(days=i)
             with cols_status[6-i]:
-                status = "🟢" if str(dia) in datas_feitas else "🔴"
-                st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{'🟢' if str(dia) in datas_feitas else '🔴'}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_principal")
+        data_sel = st.date_input("Data:", value=date.today(), max_value=date.today(), key="dt_p_principal")
         st.write("---")
         
         st.subheader("📥 Entradas")
@@ -63,16 +57,16 @@ def renderizar_tela(supabase, user):
         sb, cb, ab = linha_entrada("BOLETO", "bol")
         si, ci, ai = linha_entrada("IFOOD", "ifo")
         sp, cp, ap = linha_entrada("PBM", "pbm")
-        sx, cx, ax = linha_entrada("PIX / TRANSF", "pix")
+        sx, cx, ax = linha_entrada("PIX", "pix")
         sv, cv, av = linha_entrada("VALE COMPRA", "vco")
-        sf, cf, af = linha_entrada("FARMÁCIAS APP", "fap")
-        sl, cl, al = linha_entrada("VIDA LINK", "vli")
+        sf, cf, af = linha_entrada("FAPP", "fap")
+        sl, cl, al = linha_entrada("VLINK", "vli")
 
         t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        st.markdown(f"<div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333;'><b>SUBTOTAL ENTRADAS:</b><br>Sistema R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf. R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Acerto R$ {t_a_ent:,.2f}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333;'><b>SUBTOTAL ENTRADAS:</b> R$ {t_c_ent:,.2f}</div>", unsafe_allow_html=True)
 
         st.write("---")
         st.subheader("📤 Saídas")
@@ -82,35 +76,33 @@ def renderizar_tela(supabase, user):
         c_out = linha_saida("OUTROS", "out")
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        st.markdown(f"<div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333;'><b>TOTAL SAÍDAS:</b> <span style='color:#00ff00;'>R$ {t_c_sai:,.2f}</span></div>", unsafe_allow_html=True)
-
-        st.divider()
         saldo = t_c_ent - t_c_sai
+        st.divider()
         st.metric("SALDO FINAL CAIXA", f"R$ {saldo:,.2f}", delta=f"Acerto: {t_a_ent:,.2f}")
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info("### 📖 Instruções\n1. Confira os valores.\n2. Anexe os prints.\n3. Justifique acertos vermelhos.")
+        st.info("### 📖 Instruções\n1. Confira os valores.\n2. Anexe prints.\n3. Justifique erros.")
         
         st.subheader("💬 Feedback do Financeiro")
         
-        # Consulta simplificada para evitar SyntaxError na linha 99
-        query = supabase.table("fechamentos").select("data_fechamento, replica_gestor")
-        query = query.eq("loja_id", loja_id).not.is_("replica_gestor", "null")
-        fb_data = query.order("data_fechamento", desc=True).limit(2).execute()
-
-        if fb_data.data:
-            for f in fb_data.data:
-                with st.container(border=True):
-                    st.caption(f"Ref. {f['data_fechamento']}")
-                    st.write(f"**Gestor:** {f['replica_gestor']}")
-        else:
-            st.write("Nenhum feedback recente.")
+        # AQUI FOI A CORREÇÃO DA LINHA 99
+        try:
+            fb_data = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
+            if fb_data.data:
+                for f in fb_data.data:
+                    with st.container(border=True):
+                        st.caption(f"Ref. {f['data_fechamento']}")
+                        st.write(f"**Gestor:** {f['replica_gestor']}")
+            else:
+                st.write("Sem feedback recente.")
+        except:
+            st.write("Não foi possível carregar feedbacks.")
 
         st.write("---")
-        with st.form("f_final_envio_caixa", clear_on_submit=True):
-            imgs = st.file_uploader("Prints do Dia", accept_multiple_files=True)
-            obs = st.text_area("Suas Observações / Justificativas")
+        with st.form("f_final_envio_rev", clear_on_submit=True):
+            imgs = st.file_uploader("Prints", accept_multiple_files=True)
+            obs = st.text_area("Suas Observações")
             if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
                 dados = {
                     "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
@@ -119,12 +111,8 @@ def renderizar_tela(supabase, user):
                     "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
                     "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
                     "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                    "conf_outros": c_out, "observacoes": obs
+                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, "conf_outros": c_out, "observacoes": obs
                 }
                 ok, res = db.salvar_fechamento(supabase, dados)
                 if ok:
-                    if imgs:
-                        for i, f in enumerate(imgs):
-                            db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
-                    st.success("Salvo com sucesso!"); st.rerun()
+                    st.success("Salvo!"); st.rerun()
