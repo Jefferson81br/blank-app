@@ -22,7 +22,6 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
-    # Layout Principal centralizado conforme seus testes
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
     lojas_res = db.buscar_lojas(supabase)
@@ -39,7 +38,7 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # Status dos 7 dias
+        # STATUS DOS 7 DIAS
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -51,7 +50,14 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_valida")
+        
+        # --- VALIDAÇÃO DE DATA JÁ PREENCHIDA ---
+        ja_existe = str(data_sel) in datas_feitas
+        if ja_existe:
+            st.error(f"❌ ERRO: Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}. Para corrigir, entre em contato com o administrador ou use a tela de Auditoria.")
+            st.info("O formulário de envio foi bloqueado para evitar duplicidade.")
+        
         st.write("---")
         
         # --- ENTRADAS ---
@@ -64,26 +70,14 @@ def renderizar_tela(supabase, user):
         sp, cp, ap = linha_entrada("PBM", "pbm")
         sx, cx, ax = linha_entrada("PIX / TRANSF", "pix")
         sv, cv, av = linha_entrada("VALE COMPRA", "vco")
-        sf, cf, af = linha_entrada("FARMÁCIAS APP", "fap")
-        sl, cl, al = linha_entrada("VIDA LINK", "vli")
+        sf, cf, af = linha_entrada("FAPP", "fap")
+        sl, cl, al = linha_entrada("VLINK", "vli")
 
         t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # Subtotal Entradas Colorido
-        st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
-                <table style='width:100%; border:none;'>
-                    <tr>
-                        <td style='width:30%'><b>SUBTOTAL ENTRADAS</b></td>
-                        <td style='width:25%'>R$ {t_s_ent:,.2f}</td>
-                        <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</td>
-                        <td style='width:20%; color:#ff4b4b; font-weight:bold;'>R$ {t_a_ent:,.2f}</td>
-                    </tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'><b>SUBTOTAL ENTRADAS:</b> R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf. R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Acerto R$ {t_a_ent:,.2f}</span></div>", unsafe_allow_html=True)
 
         st.write("---")
         
@@ -95,32 +89,11 @@ def renderizar_tela(supabase, user):
         c_out = linha_saida("OUTROS", "out")
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # TOTAL SAÍDAS (Restaurado e em Verde)
-        st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
-                <table style='width:100%; border:none;'>
-                    <tr>
-                        <td style='width:30%'><b>TOTAL SAÍDAS</b></td>
-                        <td style='width:25%'>-</td>
-                        <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</td>
-                        <td style='width:20%'>-</td>
-                    </tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'><b>TOTAL SAÍDAS:</b> <span style='color:#00ff00;'>R$ {t_c_sai:,.2f}</span></div>", unsafe_allow_html=True)
 
         st.divider()
         saldo = t_c_ent - t_c_sai
-        
-        # SALDO FINAL CAIXA
-        st.markdown(f"""
-            <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
-                <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
-                <h2 style="margin:0; color:#00ff00;">R$ {saldo:,.2f}</h2>
-                <p style="margin:0; font-size:12px; color:#888;">Acerto de Entradas: R$ {t_a_ent:,.2f}</p>
-            </div>
-            <br>
-        """, unsafe_allow_html=True)
+        st.metric("SALDO FINAL CAIXA", f"R$ {saldo:,.2f}", delta=f"Acerto: {t_a_ent:,.2f}")
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -134,26 +107,30 @@ def renderizar_tela(supabase, user):
                     with st.container(border=True):
                         st.caption(f"Ref. {f['data_fechamento']}")
                         st.write(f"**Gestor:** {f['replica_gestor']}")
-            else:
-                st.write("Sem feedback recente.")
         except:
-            st.write("Aguardando feedbacks.")
+            pass
 
         st.write("---")
-        with st.form("f_final_envio_completo", clear_on_submit=True):
-            imgs = st.file_uploader("Prints do Dia", accept_multiple_files=True)
-            obs = st.text_area("Suas Observações")
-            if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                dados = {
-                    "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                    "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                    "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
-                    "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
-                    "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                    "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                    "conf_outros": c_out, "observacoes": obs
-                }
-                ok, res = db.salvar_fechamento(supabase, dados)
-                if ok:
-                    st.success("✅ Salvo!"); st.rerun()
+        
+        # --- SÓ MOSTRA O FORMULÁRIO DE SALVAR SE A DATA NÃO EXISTIR ---
+        if not ja_existe:
+            with st.form("f_final_envio_completo", clear_on_submit=True):
+                imgs = st.file_uploader("Prints do Dia", accept_multiple_files=True)
+                obs = st.text_area("Suas Observações")
+                if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
+                    dados = {
+                        "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
+                        "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
+                        "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
+                        "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
+                        "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
+                        "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
+                        "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
+                        "conf_outros": c_out, "observacoes": obs
+                    }
+                    ok, res = db.salvar_fechamento(supabase, dados)
+                    if ok:
+                        st.success("✅ Salvo com sucesso!")
+                        st.rerun()
+        else:
+            st.warning("⚠️ O botão de salvamento está desativado pois esta data já possui um lançamento.")
