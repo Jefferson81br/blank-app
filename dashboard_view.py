@@ -9,7 +9,7 @@ def renderizar_tela(supabase, user):
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
     
-    # Seleção de Unidades e Data
+    # Filtros de seleção
     col_filtros_1, col_filtros_2 = st.columns([2, 1])
     
     if user['funcao'] in ['admin', 'proprietario']:
@@ -20,18 +20,16 @@ def renderizar_tela(supabase, user):
         lista_ids = [user['unidade_id']]
         col_filtros_1.info(f"Unidade: {user['unidade_id']}")
 
-    data_sel = col_filtros_2.date_input("Data do Movimento:", value=date.today(), max_value=date.today())
+    data_sel = col_filtros_2.date_input("Data do Movimento:", value=date.today(), max_value=date.today(), key="dash_dt")
 
     if not lista_ids: st.stop()
 
-    # Busca os dados no banco para o dia selecionado
     res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids, str(data_sel), str(data_sel))
     
     if res and res.data:
         df_geral = pd.DataFrame(res.data)
         id_para_nome = {v: k for k, v in mapa_lojas.items()}
         
-        # --- LOOP DE LOJAS SELECIONADAS ---
         for l_id in lista_ids:
             df_l = df_geral[df_geral['loja_id'] == l_id]
             nome_loja = id_para_nome.get(l_id, "Unidade")
@@ -40,77 +38,92 @@ def renderizar_tela(supabase, user):
             
             if not df_l.empty:
                 d = df_l.iloc[0]
-                
-                # Layout de Matriz similar ao lançamento [Margem, Dados, Info Direita]
-                # Ajustado para [0.1, 2, 2] como no lançamento
                 m_esq, col_dados, col_info = st.columns([0.1, 2, 2])
                 
                 with col_dados:
-                    st.subheader("📋 Valores Lançados")
-                    
-                    # Tabela com todos os campos (incluindo o novo campo BOLETO)
-                    dados_tabela = [
-                        {"DESC": "CARTÃO", "S": d['sis_cartao'], "C": d['conf_cartao']},
-                        {"DESC": "CREDIÁRIO", "S": d['sis_crediario'], "C": d['conf_crediario']},
-                        {"DESC": "DINHEIRO", "S": d['sis_dinheiro'], "C": d['conf_dinheiro']},
-                        {"DESC": "BOLETO", "S": d['sis_boleto'], "C": d['conf_boleto']},
-                        {"DESC": "IFOOD", "S": d['sis_ifood'], "C": d['conf_ifood']},
-                        {"DESC": "PBM", "S": d['sis_pbm'], "C": d['conf_pbm']},
-                        {"DESC": "PIX / TRANSF", "S": d['sis_pix'], "C": d['conf_pix']},
-                        {"DESC": "VALE COMPRA", "S": d['sis_vale_compra'], "C": d['conf_vale_compra']},
-                        {"DESC": "FARMÁCIAS APP", "S": d['sis_fapp'], "C": d['conf_fapp']},
-                        {"DESC": "VIDA LINK", "S": d['sis_vlink'], "C": d['conf_vlink']},
-                        {"DESC": "DESPESA", "S": 0.0, "C": d['conf_despesa']},
-                        {"DESC": "VALE FUNC.", "S": 0.0, "C": d['conf_vale_func']},
-                        {"DESC": "DEV. CARTÃO", "S": 0.0, "C": d['conf_dev_cartao']},
-                        {"DESC": "OUTROS", "S": 0.0, "C": d['conf_outros']}
+                    # --- GRUPO 1: ENTRADAS ---
+                    st.subheader("📥 Entradas")
+                    entradas = [
+                        {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
+                        {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
+                        {"Descrição": "DINHEIRO", "Sistema": d['sis_dinheiro'], "Conferência": d['conf_dinheiro']},
+                        {"Descrição": "BOLETO", "Sistema": d['sis_boleto'], "Conferência": d['conf_boleto']},
+                        {"Descrição": "IFOOD", "Sistema": d['sis_ifood'], "Conferência": d['conf_ifood']},
+                        {"Descrição": "PBM", "Sistema": d['sis_pbm'], "Conferência": d['conf_pbm']},
+                        {"Descrição": "PIX / TRANSF", "Sistema": d['sis_pix'], "Conferência": d['conf_pix']},
+                        {"Descrição": "VALE COMPRA", "Sistema": d['sis_vale_compra'], "Conferência": d['conf_vale_compra']},
+                        {"Descrição": "FARMÁCIAS APP", "Sistema": d['sis_fapp'], "Conferência": d['conf_fapp']},
+                        {"Descrição": "VIDA LINK", "Sistema": d['sis_vlink'], "Conferência": d['conf_vlink']},
                     ]
+                    df_ent = pd.DataFrame(entradas)
+                    df_ent['Acerto'] = df_ent['Conferência'] - df_ent['Sistema']
                     
-                    df_viz = pd.DataFrame(dados_tabela)
-                    # Cálculo do acerto por linha
-                    df_viz['A'] = df_viz.apply(
-                        lambda x: x['C'] - x['S'] if x['DESC'] not in ["DESPESA", "VALE FUNC.", "DEV. CARTÃO", "OUTROS"] 
-                        else -x['C'], axis=1
-                    )
+                    st.table(df_ent.style.format({"Sistema": "{:.2f}", "Conferência": "{:.2f}", "Acerto": "{:.2f}"}))
                     
-                    st.dataframe(
-                        df_viz.style.format({"S": "{:.2f}", "C": "{:.2f}", "A": "{:.2f}"}),
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    t_sis_ent = df_ent['Sistema'].sum()
+                    t_conf_ent = df_ent['Conferência'].sum()
+                    t_ace_ent = df_ent['Acerto'].sum()
                     
-                    # Totais rápidos em baixo da tabela
-                    t_sai = d['conf_despesa'] + d['conf_vale_func'] + d['conf_dev_cartao'] + d['conf_outros']
-                    t_conf_ent = df_viz.iloc[:10]['C'].sum()
-                    saldo = t_conf_ent - t_sai
+                    st.markdown(f"""
+                        <div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333; margin-bottom:20px;'>
+                            <b>SUBTOTAL ENTRADAS:</b><br>
+                            Sistema: R$ {t_sis_ent:,.2f} | 
+                            <span style='color:#00ff00;'>Conf.: R$ {t_conf_ent:,.2f}</span> | 
+                            <span style='color:#ff4b4b;'>Acerto: R$ {t_ace_ent:,.2f}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    # --- GRUPO 2: SAÍDAS ---
+                    st.subheader("📤 Saídas")
+                    saidas = [
+                        {"Descrição": "DESPESA", "Sistema": 0.0, "Conferência": d['conf_despesa']},
+                        {"Descrição": "VALE FUNC.", "Sistema": 0.0, "Conferência": d['conf_vale_func']},
+                        {"Descrição": "DEV. CARTÃO", "Sistema": 0.0, "Conferência": d['conf_dev_cartao']},
+                        {"Descrição": "OUTROS", "Sistema": 0.0, "Conferência": d['conf_outros']}
+                    ]
+                    df_sai = pd.DataFrame(saidas)
+                    df_sai['Acerto'] = -df_sai['Conferência']
                     
-                    st.success(f"**Saldo Final Caixa: R$ {saldo:,.2f}**")
+                    st.table(df_sai.style.format({"Sistema": "{:.2f}", "Conferência": "{:.2f}", "Acerto": "{:.2f}"}))
+                    
+                    t_conf_sai = df_sai['Conferência'].sum()
+                    
+                    st.markdown(f"""
+                        <div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333; margin-bottom:20px;'>
+                            <b>SUBTOTAL SAÍDAS:</b><br>
+                            <span style='color:#00ff00;'>Conf.: R$ {t_conf_sai:,.2f}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    # --- SALDO FINAL ---
+                    saldo = t_conf_ent - t_conf_sai
+                    st.markdown(f"""
+                        <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
+                            <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
+                            <h2 style="margin:0; color:#00ff00;">R$ {saldo:,.2f}</h2>
+                        </div>
+                    """, unsafe_allow_html=True)
 
                 with col_info:
-                    # 1. Observação e Feedback no topo direito
                     st.subheader("💬 Comunicação")
                     with st.container(border=True):
                         st.markdown("**📝 Obs. do Gerente:**")
                         st.write(d['observacoes'] if d['observacoes'] else "*Sem observações.*")
-                        
                         st.divider()
-                        
-                        st.markdown("**⚖️ Feedback Financeiro (Réplica):**")
+                        st.markdown("**⚖️ Feedback Financeiro:**")
                         st.write(d['replica_gestor'] if d['replica_gestor'] else "*Aguardando auditoria.*")
 
-                    # 2. Miniaturas dos Anexos
                     st.subheader("🖼️ Comprovantes")
-                    if d['urls_prints']:
-                        # Exibe as imagens em uma grade de miniaturas
-                        cols_img = st.columns(3)
+                    if d.get('urls_prints'):
+                        cols_img = st.columns(2)
                         for idx, url in enumerate(d['urls_prints']):
-                            with cols_img[idx % 3]:
+                            with cols_img[idx % 2]:
                                 st.image(url, use_container_width=True)
                     else:
-                        st.info("Nenhum anexo enviado.")
+                        st.info("Nenhum anexo.")
                 
                 st.markdown("---")
             else:
-                st.warning(f"Sem fechamento realizado para {nome_loja} nesta data.")
+                st.warning(f"Sem dados para {nome_loja}.")
     else:
-        st.info("Selecione as unidades e a data para visualizar os fechamentos.")
+        st.info("Selecione os filtros para carregar o resumo.")
