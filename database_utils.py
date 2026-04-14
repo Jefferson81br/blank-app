@@ -91,3 +91,15 @@ def buscar_fechamento_por_data(supabase, loja_id, data_inicio, data_fim):
     except Exception as e:
         st.error(f"Erro ao buscar dados: {e}")
         return None
+
+def atualizar_auditoria(supabase, registro_id, dados):
+    """
+    Atualiza os campos de auditoria em um registro de fechamento existente.
+    """
+    try:
+        res = supabase.table("fechamentos").update(dados).eq("id", registro_id).execute()
+        # Se res.data existe, a atualização foi bem sucedida
+        return len(res.data) > 0
+    except Exception as e:
+        print(f"Erro ao atualizar auditoria: {e}")
+        return False
