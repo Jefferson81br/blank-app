@@ -1,69 +1,120 @@
 import streamlit as st
+import pandas as pd
+from datetime import date
 import database_utils as db
 
 def renderizar_tela(supabase, user):
-    st.title("⚖️ Auditoria e Correção")
-    
-    lojas = db.buscar_lojas(supabase)
-    mapa_lojas = {l['nome']: l['id'] for l in lojas.data} if lojas.data else {}
-    
-    c1, c2 = st.columns(2)
-    loja_sel = c1.selectbox("Loja:", options=list(mapa_lojas.keys()))
-    data_sel = c2.date_input("Data:", key="data_auditoria")
-    
-    loja_id = mapa_lojas[loja_sel]
-    data_str = str(data_sel)
+    st.title("⚖️ Auditoria de Fechamentos")
 
-    res = supabase.table("fechamentos").select("*").eq("loja_id", loja_id).eq("data_fechamento", data_str).execute()
+    # --- FILTROS DE BUSCA ---
+    lojas_res = db.buscar_lojas(supabase)
+    mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
     
-    if not res.data:
-        st.info(f"Nenhum dado encontrado para {loja_sel} em {data_sel.strftime('%d/%m/%Y')}.")
-        st.stop()
-    
-    d = res.data[0]
-    seed = f"{loja_id}_{data_str}"
+    c1, c2, c3 = st.columns([2, 1, 1])
+    loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
+    data_sel = c2.date_input("Data do Movimento:", value=date.today())
+    loja_id = mapa_lojas[loja_nome]
 
-    with st.form(f"f_auditoria_{seed}"):
-        st.warning(f"Editando: {loja_sel} - {data_sel.strftime('%d/%m/%Y')}")
+    # Busca o registro específico
+    res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
+
+    if res and res.data:
+        d = res.data[0]
         
-        # Campo de Réplica (Onde você escreve para o Gerente)
-        replica = st.text_area("💬 Réplica/Instrução para o Gerente (Aparecerá no próximo lançamento dele):", 
-                              value=d.get('replica_gestor', '') if d.get('replica_gestor') else '', 
-                              key=f"rep_{seed}")
+        # Colunas: [Dados à Esquerda] [Interação à Direita]
+        col_dados, col_auditoria = st.columns([2.5, 2])
 
-        def campo_auditoria(label, key_db, bloqueia=False):
-            col1, col2, col3 = st.columns([2, 2, 2])
-            col1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
-            v_s = col2.number_input("Sistema", value=float(d.get(f'sis_{key_db}', 0)), key=f"as_{key_db}_{seed}", disabled=bloqueia, format="%.2f")
-            v_c = col3.number_input("Conferência", value=float(d.get(f'conf_{key_db}', 0)), key=f"ac_{key_db}_{seed}", format="%.2f")
-            return v_s, v_c
+        with col_dados:
+            st.subheader("📋 Conferência de Valores")
+            
+            # --- GRUPO 1: ENTRADAS ---
+            entradas = [
+                {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
+                {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
+                {"Descrição": "DINHEIRO", "Sistema": d['sis_dinheiro'], "Conferência": d['conf_dinheiro']},
+                {"Descrição": "BOLETO", "Sistema": d['sis_boleto'], "Conferência": d['conf_boleto']},
+                {"Descrição": "IFOOD", "Sistema": d['sis_ifood'], "Conferência": d['conf_ifood']},
+                {"Descrição": "PBM", "Sistema": d['sis_pbm'], "Conferência": d['conf_pbm']},
+                {"Descrição": "PIX / TRANSF", "Sistema": d['sis_pix'], "Conferência": d['conf_pix']},
+                {"Descrição": "VALE COMPRA", "Sistema": d['sis_vale_compra'], "Conferência": d['conf_vale_compra']},
+                {"Descrição": "FAPP", "Sistema": d['sis_fapp'], "Conferência": d['conf_fapp']},
+                {"Descrição": "VLINK", "Sistema": d['sis_vlink'], "Conferência": d['conf_vlink']},
+            ]
+            df_ent = pd.DataFrame(entradas)
+            df_ent['Acerto'] = df_ent['Conferência'] - df_ent['Sistema']
+            
+            st.table(df_ent.style.format({"Sistema": "{:.2f}", "Conferência": "{:.2f}", "Acerto": "{:.2f}"}))
+            
+            t_conf_ent = df_ent['Conferência'].sum()
+            t_ace_ent = df_ent['Acerto'].sum()
 
-        sc, cc = campo_auditoria("CARTÃO", "cartao")
-        sr, cr = campo_auditoria("CREDIÁRIO", "crediario")
-        sd, cd = campo_auditoria("DINHEIRO", "dinheiro")
-        sb, cb = campo_auditoria("BOLETO", "boleto")
-        si, ci = campo_auditoria("IFOOD", "ifood")
-        sp, cp = campo_auditoria("PBM", "pbm")
-        sx, cx = campo_auditoria("PIX", "pix")
-        sv, cv = campo_auditoria("VALE COMPRA", "vale_compra")
-        sf, cf = campo_auditoria("FAPP", "fapp")
-        sl, cl = campo_auditoria("VLINK", "vlink")
-        
-        st.markdown("---")
-        _, cdes = campo_auditoria("DESPESA", "despesa", True)
-        _, cvfu = campo_auditoria("VALE FUNC.", "vale_func", True)
-        _, cdev = campo_auditoria("DEV. CARTÃO", "dev_cartao", True)
-        _, cout = campo_auditoria("OUTROS", "outros", True)
-        
-        if st.form_submit_button("💾 SALVAR ALTERAÇÕES E ENVIAR RÉPLICA", use_container_width=True):
-            novos_dados = {
-                "replica_gestor": replica, # Salva sua mensagem aqui
-                "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
-                "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
-                "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                "conf_despesa": cdes, "conf_vale_func": cvfu, "conf_dev_cartao": cdev, "conf_outros": cout
-            }
-            supabase.table("fechamentos").update(novos_dados).eq("id", d['id']).execute()
-            st.success("✅ Atualizado!"); st.rerun()
+            # --- GRUPO 2: SAÍDAS ---
+            saidas = [
+                {"Descrição": "DESPESA", "Valor": d['conf_despesa']},
+                {"Descrição": "VALE FUNC.", "Valor": d['conf_vale_func']},
+                {"Descrição": "DEV. CARTÃO", "Valor": d['conf_dev_cartao']},
+                {"Descrição": "OUTROS", "Valor": d['conf_outros']}
+            ]
+            df_sai = pd.DataFrame(saidas)
+            st.table(df_sai.style.format({"Valor": "{:.2f}"}))
+            
+            t_conf_sai = df_sai['Valor'].sum()
+            saldo = t_conf_ent - t_conf_sai
+
+            # Totais em destaque
+            st.markdown(f"""
+                <div style='background-color:#1a1a1a; padding:15px; border-radius:10px; border:1px solid #333;'>
+                    <span style='color:#aaa;'>SALDO FINAL AUDITADO:</span><br>
+                    <h2 style='color:#00ff00; margin:0;'>R$ {saldo:,.2f}</h2>
+                    <span style='color:#ff4b4b;'>Diferença total de acerto: R$ {t_ace_ent:,.2f}</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_auditoria:
+            # 1. Observações e Comprovantes (Visão do Auditor)
+            st.subheader("🔍 Evidências")
+            with st.container(border=True):
+                st.markdown("**📝 Observações do Gerente:**")
+                st.info(d['observacoes'] if d['observacoes'] else "Nenhuma observação enviada.")
+                
+                st.markdown("**🖼️ Anexos:**")
+                if d.get('urls_prints'):
+                    cols_img = st.columns(3)
+                    for idx, url in enumerate(d['urls_prints']):
+                        with cols_img[idx % 3]:
+                            st.image(url, use_container_width=True)
+                else:
+                    st.warning("Sem comprovantes.")
+
+            st.write("---")
+            
+            # 2. Formulário de Auditoria
+            st.subheader("✍️ Parecer do Financeiro")
+            
+            # Status atual
+            status_atual = d.get('status_auditoria', 'Pendente')
+            st.caption(f"Status Atual: **{status_atual}**")
+            if d.get('auditado_por'):
+                st.caption(f"Última revisão por: {d['auditado_por']}")
+
+            with st.form("form_auditoria"):
+                novo_feedback = st.text_area("Réplica / Feedback para o Gerente:", value=d.get('replica_gestor', ''))
+                confirmar = st.checkbox("Marcar como CONFERIDO / AUDITADO", value=(status_atual == 'Auditado'))
+                
+                if st.form_submit_button("💾 SALVAR AUDITORIA", use_container_width=True):
+                    dados_update = {
+                        "replica_gestor": novo_feedback,
+                        "status_auditoria": "Auditado" if confirmar else "Pendente",
+                        "auditado_por": user['nome'] # Registra quem está logado fazendo a auditoria
+                    }
+                    
+                    # Chamada para atualizar no banco
+                    sucesso = db.atualizar_auditoria(supabase, d['id'], dados_update)
+                    if sucesso:
+                        st.success("Auditoria salva com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Erro ao atualizar banco de dados.")
+
+    else:
+        st.info("Nenhum fechamento encontrado para esta unidade na data selecionada.")
