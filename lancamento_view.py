@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 import database_utils as db
 
+# --- FUNÇÕES DE INTERFACE ---
 def linha_entrada(label, key):
     c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
     c1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
@@ -21,7 +22,8 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
-    margem_esq, centro, coluna_avisos = st.columns([0.1, 2, 2])
+    # Layout Principal centralizado conforme seus testes
+    margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
@@ -37,6 +39,7 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
+        # Status dos 7 dias
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -45,11 +48,13 @@ def renderizar_tela(supabase, user):
         for i in range(7):
             dia = date.today() - timedelta(days=i)
             with cols_status[6-i]:
-                st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{'🟢' if str(dia) in datas_feitas else '🔴'}</div>", unsafe_allow_html=True)
+                status = "🟢" if str(dia) in datas_feitas else "🔴"
+                st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data:", value=date.today(), max_value=date.today(), key="dt_p_principal")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final")
         st.write("---")
         
+        # --- ENTRADAS ---
         st.subheader("📥 Entradas")
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
@@ -57,18 +62,32 @@ def renderizar_tela(supabase, user):
         sb, cb, ab = linha_entrada("BOLETO", "bol")
         si, ci, ai = linha_entrada("IFOOD", "ifo")
         sp, cp, ap = linha_entrada("PBM", "pbm")
-        sx, cx, ax = linha_entrada("PIX", "pix")
+        sx, cx, ax = linha_entrada("PIX / TRANSF", "pix")
         sv, cv, av = linha_entrada("VALE COMPRA", "vco")
-        sf, cf, af = linha_entrada("FAPP", "fap")
-        sl, cl, al = linha_entrada("VLINK", "vli")
+        sf, cf, af = linha_entrada("FARMÁCIAS APP", "fap")
+        sl, cl, al = linha_entrada("VIDA LINK", "vli")
 
         t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        st.markdown(f"<div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333;'><b>SUBTOTAL ENTRADAS:</b> R$ {t_c_ent:,.2f}</div>", unsafe_allow_html=True)
+        # Subtotal Entradas Colorido
+        st.markdown(f"""
+            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
+                <table style='width:100%; border:none;'>
+                    <tr>
+                        <td style='width:30%'><b>SUBTOTAL ENTRADAS</b></td>
+                        <td style='width:25%'>R$ {t_s_ent:,.2f}</td>
+                        <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</td>
+                        <td style='width:20%; color:#ff4b4b; font-weight:bold;'>R$ {t_a_ent:,.2f}</td>
+                    </tr>
+                </table>
+            </div>
+        """, unsafe_allow_html=True)
 
         st.write("---")
+        
+        # --- SAÍDAS ---
         st.subheader("📤 Saídas")
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
@@ -76,32 +95,53 @@ def renderizar_tela(supabase, user):
         c_out = linha_saida("OUTROS", "out")
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        saldo = t_c_ent - t_c_sai
+        # TOTAL SAÍDAS (Restaurado e em Verde)
+        st.markdown(f"""
+            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
+                <table style='width:100%; border:none;'>
+                    <tr>
+                        <td style='width:30%'><b>TOTAL SAÍDAS</b></td>
+                        <td style='width:25%'>-</td>
+                        <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</td>
+                        <td style='width:20%'>-</td>
+                    </tr>
+                </table>
+            </div>
+        """, unsafe_allow_html=True)
+
         st.divider()
-        st.metric("SALDO FINAL CAIXA", f"R$ {saldo:,.2f}", delta=f"Acerto: {t_a_ent:,.2f}")
+        saldo = t_c_ent - t_c_sai
+        
+        # SALDO FINAL CAIXA
+        st.markdown(f"""
+            <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
+                <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
+                <h2 style="margin:0; color:#00ff00;">R$ {saldo:,.2f}</h2>
+                <p style="margin:0; font-size:12px; color:#888;">Acerto de Entradas: R$ {t_a_ent:,.2f}</p>
+            </div>
+            <br>
+        """, unsafe_allow_html=True)
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         st.info("### 📖 Instruções\n1. Confira os valores.\n2. Anexe prints.\n3. Justifique erros.")
         
         st.subheader("💬 Feedback do Financeiro")
-        
-        # AQUI FOI A CORREÇÃO DA LINHA 99
         try:
-            fb_data = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
-            if fb_data.data:
-                for f in fb_data.data:
+            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
+            if fb.data:
+                for f in fb.data:
                     with st.container(border=True):
                         st.caption(f"Ref. {f['data_fechamento']}")
                         st.write(f"**Gestor:** {f['replica_gestor']}")
             else:
                 st.write("Sem feedback recente.")
         except:
-            st.write("Não foi possível carregar feedbacks.")
+            st.write("Aguardando feedbacks.")
 
         st.write("---")
-        with st.form("f_final_envio_rev", clear_on_submit=True):
-            imgs = st.file_uploader("Prints", accept_multiple_files=True)
+        with st.form("f_final_envio_completo", clear_on_submit=True):
+            imgs = st.file_uploader("Prints do Dia", accept_multiple_files=True)
             obs = st.text_area("Suas Observações")
             if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
                 dados = {
@@ -111,8 +151,9 @@ def renderizar_tela(supabase, user):
                     "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
                     "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
                     "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, "conf_outros": c_out, "observacoes": obs
+                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
+                    "conf_outros": c_out, "observacoes": obs
                 }
                 ok, res = db.salvar_fechamento(supabase, dados)
                 if ok:
-                    st.success("Salvo!"); st.rerun()
+                    st.success("✅ Salvo!"); st.rerun()
