@@ -20,7 +20,7 @@ def renderizar_tela(supabase, user):
         lista_ids = [user['unidade_id']]
         col_filtros_1.info(f"Unidade: {user['unidade_id']}")
 
-    data_sel = col_filtros_2.date_input("Data do Movimento:", value=date.today(), max_value=date.today(), key="dash_dt")
+    data_sel = col_filtros_2.date_input("Data do Movimento:", value=date.today(), max_value=date.today(), key="dash_dt_vFinal")
 
     if not lista_ids: st.stop()
 
@@ -38,7 +38,8 @@ def renderizar_tela(supabase, user):
             
             if not df_l.empty:
                 d = df_l.iloc[0]
-                m_esq, col_dados, col_info = st.columns([0.1, 2, 2])
+                # Mantendo a proporção de tela [0.2, 2, 3] que você validou no lançamento
+                m_esq, col_dados, col_info = st.columns([0.2, 2, 3])
                 
                 with col_dados:
                     # --- GRUPO 1: ENTRADAS ---
@@ -47,13 +48,13 @@ def renderizar_tela(supabase, user):
                         {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
                         {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
                         {"Descrição": "DINHEIRO", "Sistema": d['sis_dinheiro'], "Conferência": d['conf_dinheiro']},
-                        {"Descrição": "BOLETO", "Sistema": d['sis_boleto'], "Conferência": d['conf_boleto']},
+                        {"Descrição": "BOLETO", "Sistema": d.get('sis_boleto', 0), "Conferência": d.get('conf_boleto', 0)},
                         {"Descrição": "IFOOD", "Sistema": d['sis_ifood'], "Conferência": d['conf_ifood']},
                         {"Descrição": "PBM", "Sistema": d['sis_pbm'], "Conferência": d['conf_pbm']},
                         {"Descrição": "PIX / TRANSF", "Sistema": d['sis_pix'], "Conferência": d['conf_pix']},
                         {"Descrição": "VALE COMPRA", "Sistema": d['sis_vale_compra'], "Conferência": d['conf_vale_compra']},
-                        {"Descrição": "FARMÁCIAS APP", "Sistema": d['sis_fapp'], "Conferência": d['conf_fapp']},
-                        {"Descrição": "VIDA LINK", "Sistema": d['sis_vlink'], "Conferência": d['conf_vlink']},
+                        {"Descrição": "FAPP", "Sistema": d.get('sis_fapp', 0), "Conferência": d.get('conf_fapp', 0)},
+                        {"Descrição": "VLINK", "Sistema": d.get('sis_vlink', 0), "Conferência": d.get('conf_vlink', 0)},
                     ]
                     df_ent = pd.DataFrame(entradas)
                     df_ent['Acerto'] = df_ent['Conferência'] - df_ent['Sistema']
@@ -64,47 +65,61 @@ def renderizar_tela(supabase, user):
                     t_conf_ent = df_ent['Conferência'].sum()
                     t_ace_ent = df_ent['Acerto'].sum()
                     
+                    # Totais alinhados estilo Lançamento
                     st.markdown(f"""
-                        <div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333; margin-bottom:20px;'>
-                            <b>SUBTOTAL ENTRADAS:</b><br>
-                            Sistema: R$ {t_sis_ent:,.2f} | 
-                            <span style='color:#00ff00;'>Conf.: R$ {t_conf_ent:,.2f}</span> | 
-                            <span style='color:#ff4b4b;'>Acerto: R$ {t_ace_ent:,.2f}</span>
+                        <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #444; border-left: 5px solid #555;'>
+                            <small style='color:#bbb; font-weight:bold; text-transform: uppercase;'>Resumo das Vendas do Sistema:</small><br>
+                            <span style='font-size:15px;'>Sistema: R$ {t_sis_ent:,.2f} | <span style='color:#00ff00;'>Conf.: R$ {t_conf_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Diferença: R$ {t_ace_ent:,.2f}</span></span>
                         </div>
                     """, unsafe_allow_html=True)
+
+                    st.write("---")
 
                     # --- GRUPO 2: SAÍDAS ---
-                    st.subheader("📤 Saídas")
+                    st.subheader("📤 Saídas (Justificativa)")
                     saidas = [
-                        {"Descrição": "DESPESA", "Sistema": 0.0, "Conferência": d['conf_despesa']},
-                        {"Descrição": "VALE FUNC.", "Sistema": 0.0, "Conferência": d['conf_vale_func']},
-                        {"Descrição": "DEV. CARTÃO", "Sistema": 0.0, "Conferência": d['conf_dev_cartao']},
-                        {"Descrição": "OUTROS", "Sistema": 0.0, "Conferência": d['conf_outros']}
+                        {"Descrição": "DESPESA", "Valor": d['conf_despesa']},
+                        {"Descrição": "VALE FUNC.", "Valor": d['conf_vale_func']},
+                        {"Descrição": "DEV. CARTÃO", "Valor": d['conf_dev_cartao']},
+                        {"Descrição": "OUTROS", "Valor": d['conf_outros']}
                     ]
                     df_sai = pd.DataFrame(saidas)
-                    df_sai['Acerto'] = -df_sai['Conferência']
+                    st.table(df_sai.style.format({"Valor": "{:.2f}"}))
                     
-                    st.table(df_sai.style.format({"Sistema": "{:.2f}", "Conferência": "{:.2f}", "Acerto": "{:.2f}"}))
+                    t_conf_sai = df_sai['Valor'].sum()
                     
-                    t_conf_sai = df_sai['Conferência'].sum()
+                    # Lógica de Divergência (Idêntica ao lançamento)
+                    divergencia_final = (t_conf_ent + t_conf_sai) - t_sis_ent
                     
+                    if -0.01 <= divergencia_final <= 0.01:
+                        cor_div = "#00ff00"; label_div = "Caixa Ajustado (OK)"
+                    elif divergencia_final < 0:
+                        cor_div = "#ff4b4b"; label_div = "Divergência: FALTA"
+                    else:
+                        cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
+
                     st.markdown(f"""
-                        <div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333; margin-bottom:20px;'>
-                            <b>SUBTOTAL SAÍDAS:</b><br>
-                            <span style='color:#00ff00;'>Conf.: R$ {t_conf_sai:,.2f}</span>
+                        <div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333;'>
+                            <b>TOTAL JUSTIFICADO:</b> <span style='color:#00ff00;'>R$ {t_conf_sai:,.2f}</span>
                         </div>
                     """, unsafe_allow_html=True)
 
-                    # --- SALDO FINAL ---
-                    saldo = t_conf_ent - t_conf_sai
+                    st.divider()
+
+                    # --- CARD FINAL DE IMPACTO ---
                     st.markdown(f"""
-                        <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
-                            <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL CAIXA</p>
-                            <h2 style="margin:0; color:#00ff00;">R$ {saldo:,.2f}</h2>
+                        <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                            <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                            <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_conf_ent:,.2f}</h1>
+                            <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
+                            <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
+                                Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
+                            </p>
                         </div>
                     """, unsafe_allow_html=True)
 
                 with col_info:
+                    st.markdown("<br><br>", unsafe_allow_html=True)
                     st.subheader("💬 Comunicação")
                     with st.container(border=True):
                         st.markdown("**📝 Obs. do Gerente:**")
@@ -112,6 +127,8 @@ def renderizar_tela(supabase, user):
                         st.divider()
                         st.markdown("**⚖️ Feedback Financeiro:**")
                         st.write(d['replica_gestor'] if d['replica_gestor'] else "*Aguardando auditoria.*")
+                        if d.get('auditado_por'):
+                            st.caption(f"Auditado por: {d['auditado_por']}")
 
                     st.subheader("🖼️ Comprovantes")
                     if d.get('urls_prints'):
