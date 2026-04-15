@@ -25,7 +25,6 @@ def linha_saida(label, key):
 def renderizar_tela(supabase, user):
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
-    # Busca informações das lojas para o cabeçalho
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
     id_para_nome = {v: k for k, v in mapa_lojas.items()}
@@ -43,7 +42,6 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # --- FEEDBACK VISUAL DA LOJA ---
         st.markdown(f"""
             <div style="background-color: #1e1e1e; padding: 5px 15px; border-radius: 5px; border-left: 5px solid #00ff00; margin-bottom: 20px;">
                 <small style="color: #aaa; font-weight: bold; text-transform: uppercase;">Unidade Logada:</small><br>
@@ -51,7 +49,6 @@ def renderizar_tela(supabase, user):
             </div>
         """, unsafe_allow_html=True)
         
-        # STATUS DOS 7 DIAS
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -63,16 +60,20 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vUX")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vTitulos")
         
-        ja_existe = str(data_sel) in datas_feitas
-        if ja_existe:
+        if str(data_sel) in datas_feitas:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
         
         st.write("---")
         
         # --- ENTRADAS ---
         st.subheader("📥 Entradas")
+        
+        h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
+        h2.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
+        h3.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+        
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
         sd, cd, ad = linha_entrada("DINHEIRO", "din")
@@ -88,7 +89,6 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # TOTAIS ALINHADOS
         st.markdown("---")
         col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
         col_t1.markdown("**TOTAIS GERAIS:**")
@@ -101,6 +101,10 @@ def renderizar_tela(supabase, user):
         
         # --- SAÍDAS ---
         st.subheader("📤 Saídas")
+        
+        sh1, sh2, sh3, sh4 = st.columns([2, 2, 2, 1.5])
+        sh3.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
         c_dev = linha_saida("DEV. CARTÃO", "dev")
@@ -111,7 +115,6 @@ def renderizar_tela(supabase, user):
         cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
         label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia <= 0.01 else ("FALTA" if divergencia < 0 else "SOBRA")
 
-        # --- CARD DE IMPACTO FINAL ---
         st.markdown(f"""
             <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
                 <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
@@ -126,7 +129,7 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info(f"### 📖 Lançamento {nome_loja_exibir}\nCertifique-se de que todos os comprovantes foram anexados corretamente.")
+        st.info(f"### 📖 Unidade {nome_loja_exibir}")
         
         st.subheader("💬 Histórico de Feedbacks")
         try:
@@ -136,14 +139,13 @@ def renderizar_tela(supabase, user):
                     with st.container(border=True):
                         st.caption(f"Ref. {f['data_fechamento']}")
                         st.write(f"**Gestor:** {f['replica_gestor']}")
-        except:
-            pass
+        except: pass
 
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vUX_V1", clear_on_submit=True):
-                imgs = st.file_uploader("Anexar Comprovantes (Prints):", accept_multiple_files=True)
+            with st.form("f_final_caixa_vFinal_Titulos", clear_on_submit=True):
+                imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
@@ -162,25 +164,16 @@ def renderizar_tela(supabase, user):
                     if ok:
                         fechamento_id = res.data[0]['id']
                         urls_registradas = []
-                        
                         if imgs:
-                            with st.spinner('Enviando comprovantes...'):
+                            with st.spinner('Enviando...'):
                                 for i, f in enumerate(imgs):
                                     caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
                                     db.fazer_upload_print(supabase, f, caminho)
-                                    # Geração da URL usando o bucket correto identificado
                                     url_res = supabase.storage.from_("comprovantes").get_public_url(caminho)
                                     urls_registradas.append(url_res)
-                                
-                                # Atualiza o registro com a lista de URLs
                                 supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
                         
-                        # --- FEEDBACK DE SUCESSO APRIMORADO ---
                         st.balloons()
-                        st.success(f"✅ Fechamento da {nome_loja_exibir} realizado com sucesso!")
-                        
-                        # Aguarda 2 segundos para o usuário ler a mensagem antes do reset
+                        st.success(f"✅ Salvo!")
                         time.sleep(2)
                         st.rerun()
-                    else:
-                        st.error("Erro ao salvar o fechamento. Verifique sua conexão.")
