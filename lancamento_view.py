@@ -22,6 +22,7 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
+    # Layout Principal com a proporção que você validou
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
     lojas_res = db.buscar_lojas(supabase)
@@ -50,17 +51,17 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_valida")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_v1")
         
-        # --- VALIDAÇÃO DE DATA JÁ PREENCHIDA ---
+        # VALIDAÇÃO DE DATA JÁ PREENCHIDA
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
-            st.error(f"❌ ERRO: Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}. Para corrigir, use a tela de Auditoria.")
-            st.info("O formulário de envio foi bloqueado para evitar duplicidade.")
+            st.error(f"❌ ERRO: Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
+            st.info("Para correções, utilize a tela de Auditoria.")
         
         st.write("---")
         
-        # --- SEÇÃO 1: ENTRADAS ---
+        # --- ENTRADAS ---
         st.subheader("📥 Entradas")
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
@@ -79,16 +80,16 @@ def renderizar_tela(supabase, user):
 
         st.markdown(f"""
             <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
-                <b>SUBTOTAL ENTRADAS:</b> R$ {t_s_ent:,.2f} | 
+                <b>SUBTOTAL ENTRADAS (VENDAS):</b> Sistema R$ {t_s_ent:,.2f} | 
                 <span style='color:#00ff00;'>Conf. R$ {t_c_ent:,.2f}</span> | 
-                <span style='color:#ff4b4b;'>Acerto R$ {t_a_ent:,.2f}</span>
+                <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span>
             </div>
         """, unsafe_allow_html=True)
 
         st.write("---")
         
-        # --- SEÇÃO 2: SAÍDAS (JUSTIFICATIVA) ---
-        st.subheader("📤 Saídas (Justificativa de Acerto)")
+        # --- SAÍDAS ---
+        st.subheader("📤 Saídas (Justificativa da Diferença)")
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
         c_dev = linha_saida("DEV. CARTÃO", "dev")
@@ -96,24 +97,22 @@ def renderizar_tela(supabase, user):
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # Lógica de Divergência Final (Acerto + Saídas)
-        divergencia_final = t_a_ent + t_c_sai
+        # Lógica de Divergência Final: (Gaveta + Saídas) - Sistema
+        # Ex: (2600 + 500) - 3100 = 0.00
+        divergencia_final = (t_c_ent + t_c_sai) - t_s_ent
         
-        if divergencia_final == 0:
-            cor_div = "#00ff00"
-            label_div = "Caixa Ajustado (OK)"
+        if -0.01 <= divergencia_final <= 0.01:
+            cor_div = "#00ff00"; label_div = "Caixa Ajustado (OK)"
         elif divergencia_final < 0:
-            cor_div = "#ff4b4b"
-            label_div = "Divergência: FALTA"
+            cor_div = "#ff4b4b"; label_div = "Divergência: FALTA"
         else:
-            cor_div = "#33ccff"
-            label_div = "Divergência: SOBRA"
+            cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
 
         st.markdown(f"""
             <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
                 <table style='width:100%; border:none;'>
                     <tr>
-                        <td style='width:30%'><b>TOTAL SAÍDAS</b></td>
+                        <td style='width:30%'><b>TOTAL JUSTIFICADO</b></td>
                         <td style='width:25%'>-</td>
                         <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</td>
                         <td style='width:20%; color:{cor_div}; font-weight:bold;'>{label_div}: R$ {divergencia_final:,.2f}</td>
@@ -124,15 +123,13 @@ def renderizar_tela(supabase, user):
 
         st.divider()
         
-        # --- SEÇÃO 3: RESUMO FINAL ---
-        saldo_gaveta = t_c_ent - t_c_sai
-        
+        # RESUMO FINAL
         st.markdown(f"""
             <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
-                <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL EM ESPÉCIE (GAVETA)</p>
-                <h2 style="margin:0; color:#00ff00;">R$ {saldo_gaveta:,.2f}</h2>
+                <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL EM ESPÉCIE (VALOR CONFERIDO)</p>
+                <h2 style="margin:0; color:#00ff00;">R$ {t_c_ent:,.2f}</h2>
                 <p style="margin:0; font-size:12px; color:{cor_div}; font-weight:bold;">
-                    Status do Acerto: R$ {divergencia_final:,.2f} ({label_div})
+                    Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
                 </p>
             </div>
             <br>
@@ -140,7 +137,7 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info("### 📖 Instruções\n1. O valor de 'Conferência' em Dinheiro deve ser o total vendido.\n2. Use as 'Saídas' para justificar pagamentos feitos com dinheiro do caixa.\n3. O Saldo Final deve bater com o dinheiro físico na gaveta.")
+        st.info("### 📖 Instruções\n1. O valor Conferido deve ser o que sobrou na gaveta.\n2. Use as Saídas para justificar o que foi pago com dinheiro do caixa.\n3. O sistema calculará se o valor na mão + as saídas batem com a venda.")
         
         st.subheader("💬 Feedback do Financeiro")
         try:
@@ -156,8 +153,8 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_envio_completo", clear_on_submit=True):
-                imgs = st.file_uploader("Anexar Comprovantes / Prints", accept_multiple_files=True)
+            with st.form("f_final_caixa_v1", clear_on_submit=True):
+                imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
                     dados = {
@@ -168,16 +165,11 @@ def renderizar_tela(supabase, user):
                         "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
                         "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
                         "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                        "conf_outros": c_out, "observacoes": obs,
-                        "status_auditoria": "Pendente"
+                        "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
                     }
                     ok, res = db.salvar_fechamento(supabase, dados)
                     if ok:
-                        # Lógica de upload de imagens (se implementada no utils)
                         if imgs:
                             for i, f in enumerate(imgs):
                                 db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
-                        st.success("✅ Salvo com sucesso!")
-                        st.rerun()
-        else:
-            st.warning("⚠️ Bloqueado: Esta data já possui um lançamento.")
+                        st.success("✅ Fechamento gravado!"); st.rerun()
