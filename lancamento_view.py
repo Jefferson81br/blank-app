@@ -26,19 +26,30 @@ def renderizar_tela(supabase, user):
 
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
+    id_para_nome = {v: k for k, v in mapa_lojas.items()}
 
     if user['funcao'] == 'admin':
         with centro:
-            loja_nome_sel = st.selectbox("Unidade:", options=list(mapa_lojas.keys()))
+            loja_nome_sel = st.selectbox("Selecione a Unidade para lançamento:", options=list(mapa_lojas.keys()))
             loja_id = mapa_lojas[loja_nome_sel]
+            nome_loja_exibir = loja_nome_sel
     else:
         loja_id = user['unidade_id']
         if not loja_id: st.stop()
+        nome_loja_exibir = id_para_nome.get(loja_id, "Unidade")
 
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # STATUS DOS 7 DIAS (Indicadores visuais)
+        # --- FEEDBACK VISUAL DA LOJA ---
+        st.markdown(f"""
+            <div style="background-color: #1e1e1e; padding: 5px 15px; border-radius: 5px; border-left: 5px solid #00ff00; margin-bottom: 20px;">
+                <small style="color: #aaa; font-weight: bold; text-transform: uppercase;">Unidade Logada:</small><br>
+                <span style="color: #00ff00; font-size: 22px; font-weight: bold;">🏢 {nome_loja_exibir}</span>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # STATUS DOS 7 DIAS
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -50,15 +61,15 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_rev_total")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vLoja")
         
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
-            st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
+            st.error(f"❌ Já existe lançamento para {data_sel.strftime('%d/%m/%Y')}.")
         
         st.write("---")
         
-        # --- SEÇÃO DE ENTRADAS ---
+        # --- ENTRADAS ---
         st.subheader("📥 Entradas")
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
@@ -75,7 +86,7 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # TOTAIS ALINHADOS ABAIXO DAS COLUNAS
+        # TOTAIS ALINHADOS
         st.markdown("---")
         col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
         col_t1.markdown("**TOTAIS GERAIS:**")
@@ -86,24 +97,17 @@ def renderizar_tela(supabase, user):
 
         st.write("---")
         
-        # --- SEÇÃO DE SAÍDAS ---
-        st.subheader("📤 Saídas (Justificativa da Diferença)")
+        # --- SAÍDAS ---
+        st.subheader("📤 Saídas")
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
         c_dev = linha_saida("DEV. CARTÃO", "dev")
         c_out = linha_saida("OUTROS", "out")
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
-
-        # Lógica Matemática de Divergência
         divergencia = (t_c_ent + t_c_sai) - t_s_ent
-        
-        if -0.01 <= divergencia <= 0.01:
-            cor_div = "#00ff00"; label_div = "Caixa Ajustado (OK)"
-        elif divergencia < 0:
-            cor_div = "#ff4b4b"; label_div = "Divergência: FALTA"
-        else:
-            cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
+        cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
+        label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia <= 0.01 else ("FALTA" if divergencia < 0 else "SOBRA")
 
         # --- CARD DE IMPACTO FINAL ---
         st.markdown(f"""
@@ -120,9 +124,9 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info("### 📖 Instruções\nAnexe os comprovantes e descreva qualquer irregularidade nas observações.")
+        st.info(f"### 📖 Lançamento {nome_loja_exibir}\nConfira se os prints anexados condizem com os valores digitados.")
         
-        st.subheader("💬 Feedback do Financeiro")
+        st.subheader("💬 Histórico de Feedbacks")
         try:
             fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
             if fb.data:
@@ -136,7 +140,7 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal_v2", clear_on_submit=True):
+            with st.form("f_final_caixa_vLoja_V1", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
@@ -160,13 +164,10 @@ def renderizar_tela(supabase, user):
                         if imgs:
                             for i, f in enumerate(imgs):
                                 caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
-                                # 1. Upload para o bucket correto 'comprovantes'
                                 db.fazer_upload_print(supabase, f, caminho)
-                                # 2. Geração da URL pública correta
                                 url_res = supabase.storage.from_("comprovantes").get_public_url(caminho)
                                 urls_registradas.append(url_res)
                             
-                            # 3. Persistência dos links no banco
                             supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
                         
-                        st.success("✅ Fechamento e comprovantes salvos com sucesso!"); st.rerun()
+                        st.success(f"✅ Fechamento da {nome_loja_exibir} salvo!"); st.rerun()
