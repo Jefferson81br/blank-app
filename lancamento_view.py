@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import database_utils as db
 from streamlit_paste_button import paste_image_button
 import io
-from PIL import Image
+import uuid
 
 # --- FUNÇÕES DE INTERFACE ---
 def linha_entrada(label, key):
@@ -24,6 +24,10 @@ def linha_saida(label, key):
     c4.write("")
     return v_c
 
+# Função para remover print da galeria
+def remover_print(index):
+    st.session_state.lista_prints.pop(index)
+
 def renderizar_tela(supabase, user):
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
@@ -41,7 +45,7 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # Logica de Status dos dias
+        # Logica de Status (Círculos verdes/vermelhos)
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -53,9 +57,8 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_v3")
-        ja_existe = str(data_sel) in datas_feitas
-        if ja_existe: st.error(f"❌ Já existe lançamento para esta data.")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_v5")
+        if str(data_sel) in datas_feitas: st.error("❌ Já existe lançamento para esta data.")
         
         st.write("---")
         
@@ -76,6 +79,7 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
+        # TOTAIS
         st.write("")
         ct1, ct2, ct3, ct4 = st.columns([2, 2, 2, 1.5])
         ct1.write("**TOTAIS:**")
@@ -94,15 +98,15 @@ def renderizar_tela(supabase, user):
         c_out = linha_saida("OUTROS", "out")
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
-        divergencia_final = (t_c_ent + t_c_sai) - t_s_ent
-        cor_div = "#00ff00" if -0.01 <= divergencia_final <= 0.01 else ("#ff4b4b" if divergencia_final < 0 else "#33ccff")
-        label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia_final <= 0.01 else ("Divergência: FALTA" if divergencia_final < 0 else "Divergência: SOBRA")
-
+        divergencia = (t_c_ent + t_c_sai) - t_s_ent
+        cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
+        
+        # CARD DE RESUMO
         st.markdown(f"""
             <div style="background-color:#1a1a1a; padding:25px; border-radius:15px; border-left: 8px solid #00ff00;">
-                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
-                <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
-                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">Status: {label_div} (R$ {divergencia_final:,.2f})</p>
+                <p style="margin:0; font-size:16px; color:#aaa; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                <h1 style="margin:0; color:#00ff00; font-size:42px;">R$ {t_c_ent:,.2f}</h1>
+                <p style="margin:0; font-size:18px; color:{cor_div}; font-weight:bold;">Status: {label_div if 'label_div' in locals() else 'Divergência'} (R$ {divergencia:,.2f})</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -115,75 +119,65 @@ def renderizar_tela(supabase, user):
 
         col_p1, col_p2 = st.columns([1,1])
         with col_p1:
-            pasted_img = paste_image_button(label="📋 COLAR PRINT (CTRL+V)")
+            pasted = paste_image_button(label="📋 COLAR PRINT (CTRL+V)")
         with col_p2:
             if st.button("🗑️ Limpar Tudo"):
                 st.session_state.lista_prints = []
                 st.rerun()
 
-        if pasted_img and pasted_img.image_data is not None:
-            # Comparamos o ID da imagem para não duplicar no rerun do Streamlit
-            img_id = hash(pasted_img.image_data.tobytes())
-            if not any(img_id == p['id'] for p in st.session_state.lista_prints):
-                st.session_state.lista_prints.append({'id': img_id, 'data': pasted_img.image_data})
-                st.toast("Adicionado!", icon="✅")
+        # Adicionar novo print
+        if pasted and pasted.image_data is not None:
+            # Criamos um identificador único para o componente de imagem
+            img_data = pasted.image_data
+            # Evita duplicata imediata por causa do ciclo de vida do Streamlit
+            if not st.session_state.lista_prints or hash(img_data.tobytes()) != st.session_state.get('ultimo_hash'):
+                st.session_state.lista_prints.append(img_data)
+                st.session_state.ultimo_hash = hash(img_data.tobytes())
+                st.rerun()
 
-        # Exibição com botão de exclusão Individual
+        # Exibir galeria com botão Remover funcional
         if st.session_state.lista_prints:
-            cols = st.columns(3)
-            for idx, item in enumerate(st.session_state.lista_prints):
-                with cols[idx % 3]:
-                    st.image(item['data'], use_container_width=True)
-                    if st.button(f"❌ Remover", key=f"btn_rem_{item['id']}"):
-                        st.session_state.lista_prints.pop(idx)
-                        st.rerun()
+            cols = st.columns(2)
+            for idx, img in enumerate(st.session_state.lista_prints):
+                with cols[idx % 2]:
+                    st.image(img, use_container_width=True)
+                    # Botão remover usando callback para garantir a execução
+                    st.button(f"❌ Remover #{idx+1}", key=f"rem_{idx}", on_click=remover_print, args=(idx,))
 
         st.write("---")
         
-        if not ja_existe:
-            with st.form("form_final_v3", clear_on_submit=False): # False para não perder tudo se der erro
-                imgs_file = st.file_uploader("Arquivos (Opcional):", accept_multiple_files=True)
-                obs = st.text_area("Observações")
+        with st.form("form_final_v5", clear_on_submit=False):
+            files = st.file_uploader("Arquivos Extras:", accept_multiple_files=True)
+            obs = st.text_area("Observações")
+            
+            if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
+                dados = {
+                    "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
+                    "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
+                    "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
+                    "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
+                    "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
+                    "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
+                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
+                    "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
+                }
                 
-                btn_salvar = st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True)
+                ok, res = db.salvar_fechamento(supabase, dados)
                 
-                if btn_salvar:
-                    dados = {
-                        "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                        "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                        "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
-                        "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
-                        "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                        "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                        "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                        "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
-                    }
+                if ok:
+                    # 1. Salvar Prints Colados
+                    for i, img in enumerate(st.session_state.lista_prints):
+                        buf = io.BytesIO()
+                        img.save(buf, format="JPEG", quality=80)
+                        db.fazer_upload_print(supabase, buf.getvalue(), f"{loja_id}/{data_sel}/v_{i}.jpg")
                     
-                    ok, res = db.salvar_fechamento(supabase, dados)
+                    # 2. Salvar Arquivos do Selecionador
+                    if files:
+                        for i, f in enumerate(files):
+                            db.fazer_upload_print(supabase, f.getvalue(), f"{loja_id}/{data_sel}/f_{i}_{f.name}")
                     
-                    if ok:
-                        fechamento_id = res.data[0]['id'] # Garantir que temos o ID do registro
-                        
-                        # 1. Upload dos Prints Colados
-                        for i, item in enumerate(st.session_state.lista_prints):
-                            try:
-                                buf = io.BytesIO()
-                                item['data'].save(buf, format="JPEG", quality=85)
-                                content = buf.getvalue()
-                                db.fazer_upload_print(supabase, content, f"{loja_id}/{data_sel}/p_{i}.jpg")
-                            except Exception as e:
-                                st.error(f"Erro no print {i}")
-
-                        # 2. Upload dos Arquivos do Selecionador
-                        if imgs_file:
-                            for i, f in enumerate(imgs_file):
-                                try:
-                                    db.fazer_upload_print(supabase, f.getvalue(), f"{loja_id}/{data_sel}/f_{i}_{f.name}")
-                                except Exception as e:
-                                    st.error(f"Erro no arquivo {f.name}")
-
-                        st.session_state.lista_prints = []
-                        st.success("✅ Fechamento e Imagens Salvas!")
-                        st.rerun()
-                    else:
-                        st.error("Erro ao salvar dados no banco.")
+                    st.session_state.lista_prints = []
+                    st.success("✅ Tudo salvo com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Erro ao salvar dados.")
