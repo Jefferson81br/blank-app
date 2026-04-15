@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date, timedelta
 import database_utils as db
+import time
 
 # --- FUNÇÕES DE INTERFACE ---
 def linha_entrada(label, key):
@@ -24,6 +25,7 @@ def linha_saida(label, key):
 def renderizar_tela(supabase, user):
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
+    # Busca informações das lojas para o cabeçalho
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
     id_para_nome = {v: k for k, v in mapa_lojas.items()}
@@ -61,11 +63,11 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vLoja")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vUX")
         
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
-            st.error(f"❌ Já existe lançamento para {data_sel.strftime('%d/%m/%Y')}.")
+            st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
         
         st.write("---")
         
@@ -124,7 +126,7 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info(f"### 📖 Lançamento {nome_loja_exibir}\nConfira se os prints anexados condizem com os valores digitados.")
+        st.info(f"### 📖 Lançamento {nome_loja_exibir}\nCertifique-se de que todos os comprovantes foram anexados corretamente.")
         
         st.subheader("💬 Histórico de Feedbacks")
         try:
@@ -140,8 +142,8 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vLoja_V1", clear_on_submit=True):
-                imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
+            with st.form("f_final_caixa_vUX_V1", clear_on_submit=True):
+                imgs = st.file_uploader("Anexar Comprovantes (Prints):", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
@@ -162,12 +164,23 @@ def renderizar_tela(supabase, user):
                         urls_registradas = []
                         
                         if imgs:
-                            for i, f in enumerate(imgs):
-                                caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
-                                db.fazer_upload_print(supabase, f, caminho)
-                                url_res = supabase.storage.from_("comprovantes").get_public_url(caminho)
-                                urls_registradas.append(url_res)
-                            
-                            supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
+                            with st.spinner('Enviando comprovantes...'):
+                                for i, f in enumerate(imgs):
+                                    caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
+                                    db.fazer_upload_print(supabase, f, caminho)
+                                    # Geração da URL usando o bucket correto identificado
+                                    url_res = supabase.storage.from_("comprovantes").get_public_url(caminho)
+                                    urls_registradas.append(url_res)
+                                
+                                # Atualiza o registro com a lista de URLs
+                                supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
                         
-                        st.success(f"✅ Fechamento da {nome_loja_exibir} salvo!"); st.rerun()
+                        # --- FEEDBACK DE SUCESSO APRIMORADO ---
+                        st.balloons()
+                        st.success(f"✅ Fechamento da {nome_loja_exibir} realizado com sucesso!")
+                        
+                        # Aguarda 2 segundos para o usuário ler a mensagem antes do reset
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.error("Erro ao salvar o fechamento. Verifique sua conexão.")
