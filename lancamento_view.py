@@ -16,7 +16,7 @@ def linha_entrada(label, key):
 
 def linha_saida(label, key):
     c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
-    c1.markdown(f<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
+    c1.markdown(f"<div style='padding-top:10px'><b>{label}</b></div>", unsafe_allow_html=True)
     c2.write("-")
     v_c = c3.number_input("R$", key=f"c_{key}", format="%.2f", step=0.01, label_visibility="collapsed")
     c4.write("")
@@ -60,7 +60,7 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vTitulos_v3")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vTitulos_v4")
         ja_existe = str(data_sel) in datas_feitas
         
         if ja_existe:
@@ -114,7 +114,7 @@ def renderizar_tela(supabase, user):
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # Bloco de Subtotal de Saídas (Recuperado)
+        # Bloco de Subtotal de Saídas
         st.markdown(f"""
             <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
                 <table style='width:100%; border:none;'>
@@ -163,7 +163,7 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal_Titulos_v3", clear_on_submit=True):
+            with st.form("f_final_caixa_vFinal_Titulos_v4", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
