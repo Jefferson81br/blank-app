@@ -11,7 +11,7 @@ def linha_entrada(label, key):
     v_c = c3.number_input("R$", key=f"c_{key}", format="%.2f", step=0.01, label_visibility="collapsed")
     ace = v_c - v_s
     cor = "white" if ace == 0 else ("#ff4b4b" if ace < 0 else "#00ff00")
-    c4.markdown(f"<div style='padding-top:10px; color:{cor}; font-weight:bold;'>R$ {ace:.2f}</div>", unsafe_allow_html=True)
+    c4.markdown(f"<div style='padding-top:10px; text-align:center; color:{cor}; font-weight:bold;'>R$ {ace:.2f}</div>", unsafe_allow_html=True)
     return v_s, v_c, ace
 
 def linha_saida(label, key):
@@ -60,9 +60,12 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vTitulos")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vTitulos_v2")
         
-        if str(data_sel) in datas_feitas:
+        # DEFINIÇÃO DA VARIÁVEL ANTES DE QUALQUER USO
+        ja_existe = str(data_sel) in datas_feitas
+        
+        if ja_existe:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
         
         st.write("---")
@@ -71,8 +74,9 @@ def renderizar_tela(supabase, user):
         st.subheader("📥 Entradas")
         
         h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
-        h2.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
-        h3.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+        h2.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
+        h3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+        h4.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>ACERTO</div>", unsafe_allow_html=True)
         
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
@@ -95,7 +99,7 @@ def renderizar_tela(supabase, user):
         col_t2.markdown(f"**R$ {t_s_ent:,.2f}**")
         col_t3.markdown(f"<span style='color:#00ff00; font-weight:bold; font-size:18px;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
         cor_final_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
-        col_t4.markdown(f"<span style='color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
+        col_t4.markdown(f"<div style='text-align:center; color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</div>", unsafe_allow_html=True)
 
         st.write("---")
         
@@ -103,7 +107,7 @@ def renderizar_tela(supabase, user):
         st.subheader("📤 Saídas")
         
         sh1, sh2, sh3, sh4 = st.columns([2, 2, 2, 1.5])
-        sh3.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+        sh3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
 
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
@@ -143,8 +147,9 @@ def renderizar_tela(supabase, user):
 
         st.write("---")
         
+        # AQUI O FORMULÁRIO USA A VARIÁVEL JA_EXISTE DEFINIDA NO INÍCIO
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal_Titulos", clear_on_submit=True):
+            with st.form("f_final_caixa_vFinal_Titulos_v2", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
