@@ -1,6 +1,8 @@
 import streamlit as st
 from datetime import date, timedelta
 import database_utils as db
+from streamlit_paste_button import paste_image_button
+import io
 
 # --- FUNÇÕES DE INTERFACE ---
 def linha_entrada(label, key):
@@ -50,7 +52,7 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_revision")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_v_final")
         
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
@@ -75,22 +77,14 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # --- TOTAIS ALINHADOS ABAIXO DAS COLUNAS ---
-        st.markdown("---")
-        col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
-        col_t1.markdown("**TOTAIS GERAIS:**")
-        col_t2.markdown(f"**R$ {t_s_ent:,.2f}**")
-        col_t3.markdown(f"<span style='color:#00ff00; font-weight:bold; font-size:18px;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
-        
-        cor_final_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
-        col_t4.markdown(f"<span style='color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
-
-        st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #444; margin-top:15px; border-left: 5px solid #555;'>
-                <small style='color:#bbb; font-weight:bold; text-transform: uppercase;'>Resumo das Vendas do Sistema:</small><br>
-                <span style='font-size:15px;'>Sistema: R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf.: R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span></span>
-            </div>
-        """, unsafe_allow_html=True)
+        # Totais alinhados
+        st.write("")
+        ct1, ct2, ct3, ct4 = st.columns([2, 2, 2, 1.5])
+        ct1.write("**TOTAIS:**")
+        ct2.write(f"**R$ {t_s_ent:,.2f}**")
+        ct3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
+        cor_t_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
+        ct4.markdown(f"<span style='color:{cor_t_ace}; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
 
         st.write("---")
         
@@ -102,7 +96,6 @@ def renderizar_tela(supabase, user):
         c_out = linha_saida("OUTROS", "out")
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
-
         divergencia_final = (t_c_ent + t_c_sai) - t_s_ent
         
         if -0.01 <= divergencia_final <= 0.01:
@@ -112,28 +105,14 @@ def renderizar_tela(supabase, user):
         else:
             cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
 
-        st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
-                <table style='width:100%; border:none;'>
-                    <tr>
-                        <td style='width:30%'><b>TOTAL JUSTIFICADO</b></td>
-                        <td style='width:25%'>-</td>
-                        <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</td>
-                        <td style='width:20%; color:{cor_div}; font-weight:bold;'>{label_div}: R$ {divergencia_final:,.2f}</td>
-                    </tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
-
         st.divider()
         
-        # --- CARD FINAL: CAIXA TOTAL DO DIA ---
+        # CARD FINAL
         st.markdown(f"""
-            <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
-                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
-                <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
-                <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
-                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
+            <div style="background-color:#1a1a1a; padding:20px; border-radius:10px; border-left: 5px solid #00ff00;">
+                <p style="margin:0; font-size:16px; color:#aaa; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                <h1 style="margin:0; color:#00ff00; font-size:42px;">R$ {t_c_ent:,.2f}</h1>
+                <p style="margin-top:10px; margin-bottom:0; font-size:18px; color:{cor_div}; font-weight:bold;">
                     Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
                 </p>
             </div>
@@ -142,25 +121,42 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info("### 📖 Instruções\nO valor **Conferido** deve ser o que sobrou no caixa.\nAs **Saídas** justificam o que foi pago com esse dinheiro.")
         
-        st.subheader("💬 Feedback do Financeiro")
-        try:
-            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
-            if fb.data:
-                for f in fb.data:
-                    with st.container(border=True):
-                        st.caption(f"Ref. {f['data_fechamento']}")
-                        st.write(f"**Gestor:** {f['replica_gestor']}")
-        except:
-            pass
+        # --- ÁREA DE PRINTS (CTRL+V) ---
+        st.subheader("🖼️ Galeria de Prints")
+        
+        if 'lista_prints' not in st.session_state:
+            st.session_state.lista_prints = []
+
+        col_p1, col_p2 = st.columns([1,1])
+        with col_p1:
+            pasted_img = paste_image_button(label="📋 COLAR PRINT (CTRL+V)", background_color="#1a1a1a", hover_color="#00ff00")
+        with col_p2:
+            if st.button("🗑️ Limpar Prints"):
+                st.session_state.lista_prints = []
+                st.rerun()
+
+        if pasted_img and pasted_img.image_data is not None:
+            # Adiciona apenas se for uma nova imagem (comparando dados brutos)
+            if pasted_img.image_data not in st.session_state.lista_prints:
+                st.session_state.lista_prints.append(pasted_img.image_data)
+                st.toast("Print adicionado!", icon="✅")
+
+        # Mostra miniaturas
+        if st.session_state.lista_prints:
+            cols = st.columns(3)
+            for i, img_data in enumerate(st.session_state.lista_prints):
+                with cols[i % 3]:
+                    st.image(img_data, use_container_width=True, caption=f"Print {i+1}")
 
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_vFinal_v2", clear_on_submit=True):
-                imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True)
+            with st.form("f_final_envio_caixa", clear_on_submit=True):
+                # Mantemos o uploader original para caso queiram subir arquivos salvos
+                imgs_file = st.file_uploader("Ou anexe arquivos salvos:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
+                
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
                     dados = {
                         "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
@@ -172,9 +168,21 @@ def renderizar_tela(supabase, user):
                         "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
                         "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
                     }
+                    
                     ok, res = db.salvar_fechamento(supabase, dados)
                     if ok:
-                        if imgs:
-                            for i, f in enumerate(imgs):
-                                db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
-                        st.success("✅ Fechamento gravado!"); st.rerun()
+                        # 1. Salva Prints Colados (Ctrl+V)
+                        for i, img in enumerate(st.session_state.lista_prints):
+                            # Converter objeto PIL para Bytes para o Supabase
+                            buf = io.BytesIO()
+                            img.save(buf, format="JPEG", quality=80)
+                            db.fazer_upload_print(supabase, buf.getvalue(), f"loja_{loja_id}/{data_sel}/v_{i}.jpg")
+                        
+                        # 2. Salva Arquivos do Uploader
+                        if imgs_file:
+                            for i, f in enumerate(imgs_file):
+                                db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/f_{i}.jpg")
+                        
+                        st.session_state.lista_prints = [] # Limpa a galeria após salvar
+                        st.success("✅ Fechamento enviado com sucesso!")
+                        st.rerun()
