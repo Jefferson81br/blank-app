@@ -3,3 +3,4 @@ supabase
 pandas
 streamlit-authenticator
 bcrypt
+pip install streamlit-paste-button
