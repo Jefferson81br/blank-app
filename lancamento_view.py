@@ -50,7 +50,7 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_f")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_revision")
         
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
@@ -75,19 +75,20 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # Ajuste Estético 1: Totais alinhados abaixo das colunas
-        st.write("")
-        ct1, ct2, ct3, ct4 = st.columns([2, 2, 2, 1.5])
-        ct1.write("**TOTAIS:**")
-        ct2.write(f"**R$ {t_s_ent:,.2f}**")
-        ct3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
-        cor_t_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
-        ct4.markdown(f"<span style='color:{cor_t_ace}; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
+        # --- TOTAIS ALINHADOS ABAIXO DAS COLUNAS ---
+        st.markdown("---")
+        col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
+        col_t1.markdown("**TOTAIS GERAIS:**")
+        col_t2.markdown(f"**R$ {t_s_ent:,.2f}**")
+        col_t3.markdown(f"<span style='color:#00ff00; font-weight:bold; font-size:18px;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
+        
+        cor_final_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
+        col_t4.markdown(f"<span style='color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
 
         st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
-                <small style='color:#aaa;'>RESUMO DAS VENDAS:</small><br>
-                Sistema R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf. R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span>
+            <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #444; margin-top:15px; border-left: 5px solid #555;'>
+                <small style='color:#bbb; font-weight:bold; text-transform: uppercase;'>Resumo das Vendas do Sistema:</small><br>
+                <span style='font-size:15px;'>Sistema: R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf.: R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span></span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -126,12 +127,13 @@ def renderizar_tela(supabase, user):
 
         st.divider()
         
-        # Ajuste Estético 2: Texto e fonte do Resumo do Dia
+        # --- CARD FINAL: CAIXA TOTAL DO DIA ---
         st.markdown(f"""
-            <div style="background-color:#1a1a1a; padding:20px; border-radius:10px; border-left: 5px solid #00ff00;">
-                <p style="margin:0; font-size:16px; color:#aaa; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
-                <h1 style="margin:0; color:#00ff00; font-size:42px;">R$ {t_c_ent:,.2f}</h1>
-                <p style="margin-top:10px; margin-bottom:0; font-size:18px; color:{cor_div}; font-weight:bold;">
+            <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
+                <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
+                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
                     Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
                 </p>
             </div>
@@ -156,7 +158,7 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal", clear_on_submit=True):
+            with st.form("f_final_vFinal_v2", clear_on_submit=True):
                 imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
