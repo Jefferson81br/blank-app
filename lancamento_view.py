@@ -38,7 +38,7 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # STATUS DOS 7 DIAS
+        # STATUS DOS 7 DIAS (Indicadores visuais)
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -50,7 +50,7 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_principal_vFinal")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_rev_total")
         
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
@@ -58,7 +58,7 @@ def renderizar_tela(supabase, user):
         
         st.write("---")
         
-        # --- ENTRADAS ---
+        # --- SEÇÃO DE ENTRADAS ---
         st.subheader("📥 Entradas")
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
@@ -75,7 +75,7 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # TOTAIS ALINHADOS
+        # TOTAIS ALINHADOS ABAIXO DAS COLUNAS
         st.markdown("---")
         col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
         col_t1.markdown("**TOTAIS GERAIS:**")
@@ -86,31 +86,41 @@ def renderizar_tela(supabase, user):
 
         st.write("---")
         
-        # --- SAÍDAS ---
-        st.subheader("📤 Saídas")
+        # --- SEÇÃO DE SAÍDAS ---
+        st.subheader("📤 Saídas (Justificativa da Diferença)")
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
         c_dev = linha_saida("DEV. CARTÃO", "dev")
         c_out = linha_saida("OUTROS", "out")
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
-        divergencia = (t_c_ent + t_c_sai) - t_s_ent
-        cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
-        label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia <= 0.01 else ("FALTA" if divergencia < 0 else "SOBRA")
 
-        # CARD FINAL
+        # Lógica Matemática de Divergência
+        divergencia = (t_c_ent + t_c_sai) - t_s_ent
+        
+        if -0.01 <= divergencia <= 0.01:
+            cor_div = "#00ff00"; label_div = "Caixa Ajustado (OK)"
+        elif divergencia < 0:
+            cor_div = "#ff4b4b"; label_div = "Divergência: FALTA"
+        else:
+            cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
+
+        # --- CARD DE IMPACTO FINAL ---
         st.markdown(f"""
-            <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00;">
-                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+            <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
                 <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
-                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold;">Status: {label_div} (R$ {divergencia:,.2f})</p>
+                <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
+                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
+                    Status da Auditoria: {label_div} (R$ {divergencia:,.2f})
+                </p>
             </div>
             <br>
         """, unsafe_allow_html=True)
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info("### 📖 Instruções\nAnexe os prints e justifique as diferenças.")
+        st.info("### 📖 Instruções\nAnexe os comprovantes e descreva qualquer irregularidade nas observações.")
         
         st.subheader("💬 Feedback do Financeiro")
         try:
@@ -126,9 +136,9 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal", clear_on_submit=True):
+            with st.form("f_final_caixa_vFinal_v2", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
-                obs = st.text_area("Observações")
+                obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
                     dados = {
@@ -150,13 +160,13 @@ def renderizar_tela(supabase, user):
                         if imgs:
                             for i, f in enumerate(imgs):
                                 caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
-                                # 1. Sobe o arquivo
+                                # 1. Upload para o bucket correto 'comprovantes'
                                 db.fazer_upload_print(supabase, f, caminho)
-                                # 2. Pega a URL Pública (Substitua 'prints' pelo nome do seu bucket se for diferente)
-                                url_res = supabase.storage.from_("prints").get_public_url(caminho)
+                                # 2. Geração da URL pública correta
+                                url_res = supabase.storage.from_("comprovantes").get_public_url(caminho)
                                 urls_registradas.append(url_res)
                             
-                            # 3. Atualiza a linha do banco com a lista de URLs
+                            # 3. Persistência dos links no banco
                             supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
                         
-                        st.success("✅ Fechamento e comprovantes salvos!"); st.rerun()
+                        st.success("✅ Fechamento e comprovantes salvos com sucesso!"); st.rerun()
