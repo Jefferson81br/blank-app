@@ -71,8 +71,8 @@ def renderizar_tela(supabase, user):
         st.subheader("📥 Entradas")
         
         h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
-        h2.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
-        h3.markdown("<div style='text-align:center; color:#888; font-size:11px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+        h2.markdown("<div style='text-align:center; color:#888; font-size:15px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
+        h3.markdown("<div style='text-align:center; color:#888; font-size:15px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
         
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
