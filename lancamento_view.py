@@ -1,9 +1,6 @@
 import streamlit as st
 from datetime import date, timedelta
 import database_utils as db
-from streamlit_paste_button import paste_image_button
-import io
-import uuid
 
 # --- FUNÇÕES DE INTERFACE ---
 def linha_entrada(label, key):
@@ -24,10 +21,6 @@ def linha_saida(label, key):
     c4.write("")
     return v_c
 
-# Função para remover print da galeria
-def remover_print(index):
-    st.session_state.lista_prints.pop(index)
-
 def renderizar_tela(supabase, user):
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
@@ -45,7 +38,7 @@ def renderizar_tela(supabase, user):
     with centro:
         st.title("📝 Lançamento Diário")
         
-        # Logica de Status (Círculos verdes/vermelhos)
+        # STATUS DOS 7 DIAS
         data_limite = date.today() - timedelta(days=7)
         res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
         datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
@@ -57,12 +50,15 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_v5")
-        if str(data_sel) in datas_feitas: st.error("❌ Já existe lançamento para esta data.")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_revision")
+        
+        ja_existe = str(data_sel) in datas_feitas
+        if ja_existe:
+            st.error(f"❌ ERRO: Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
         
         st.write("---")
         
-        # ENTRADAS
+        # --- ENTRADAS ---
         st.subheader("📥 Entradas")
         sc, cc, ac = linha_entrada("CARTÃO", "car")
         sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
@@ -79,105 +75,106 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        # TOTAIS
-        st.write("")
-        ct1, ct2, ct3, ct4 = st.columns([2, 2, 2, 1.5])
-        ct1.write("**TOTAIS:**")
-        ct2.write(f"**R$ {t_s_ent:,.2f}**")
-        ct3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
-        cor_t_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
-        ct4.markdown(f"<span style='color:{cor_t_ace}; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
+        # --- TOTAIS ALINHADOS ABAIXO DAS COLUNAS ---
+        st.markdown("---")
+        col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
+        col_t1.markdown("**TOTAIS GERAIS:**")
+        col_t2.markdown(f"**R$ {t_s_ent:,.2f}**")
+        col_t3.markdown(f"<span style='color:#00ff00; font-weight:bold; font-size:18px;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
+        
+        cor_final_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
+        col_t4.markdown(f"<span style='color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
+
+        st.markdown(f"""
+            <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #444; margin-top:15px; border-left: 5px solid #555;'>
+                <small style='color:#bbb; font-weight:bold; text-transform: uppercase;'>Resumo das Vendas do Sistema:</small><br>
+                <span style='font-size:15px;'>Sistema: R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf.: R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span></span>
+            </div>
+        """, unsafe_allow_html=True)
 
         st.write("---")
         
-        # SAÍDAS
-        st.subheader("📤 Saídas")
+        # --- SAÍDAS ---
+        st.subheader("📤 Saídas (Justificativa da Diferença)")
         c_des = linha_saida("DESPESA", "des")
         c_vfu = linha_saida("VALE FUNC.", "vfu")
         c_dev = linha_saida("DEV. CARTÃO", "dev")
         c_out = linha_saida("OUTROS", "out")
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
-        divergencia = (t_c_ent + t_c_sai) - t_s_ent
-        cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
+
+        divergencia_final = (t_c_ent + t_c_sai) - t_s_ent
         
-        # CARD DE RESUMO
+        if -0.01 <= divergencia_final <= 0.01:
+            cor_div = "#00ff00"; label_div = "Caixa Ajustado (OK)"
+        elif divergencia_final < 0:
+            cor_div = "#ff4b4b"; label_div = "Divergência: FALTA"
+        else:
+            cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
+
         st.markdown(f"""
-            <div style="background-color:#1a1a1a; padding:25px; border-radius:15px; border-left: 8px solid #00ff00;">
-                <p style="margin:0; font-size:16px; color:#aaa; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
-                <h1 style="margin:0; color:#00ff00; font-size:42px;">R$ {t_c_ent:,.2f}</h1>
-                <p style="margin:0; font-size:18px; color:{cor_div}; font-weight:bold;">Status: {label_div if 'label_div' in locals() else 'Divergência'} (R$ {divergencia:,.2f})</p>
+            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
+                <table style='width:100%; border:none;'>
+                    <tr>
+                        <td style='width:30%'><b>TOTAL JUSTIFICADO</b></td>
+                        <td style='width:25%'>-</td>
+                        <td style='width:25%; color:#00ff00; font-weight:bold;'>R$ {t_c_sai:,.2f}</td>
+                        <td style='width:20%; color:{cor_div}; font-weight:bold;'>{label_div}: R$ {divergencia_final:,.2f}</td>
+                    </tr>
+                </table>
             </div>
+        """, unsafe_allow_html=True)
+
+        st.divider()
+        
+        # --- CARD FINAL: CAIXA TOTAL DO DIA ---
+        st.markdown(f"""
+            <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
+                <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
+                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
+                    Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
+                </p>
+            </div>
+            <br>
         """, unsafe_allow_html=True)
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.subheader("🖼️ Galeria de Prints")
+        st.info("### 📖 Instruções\nO valor **Conferido** deve ser o que sobrou no caixa.\nAs **Saídas** justificam o que foi pago com esse dinheiro.")
         
-        if 'lista_prints' not in st.session_state:
-            st.session_state.lista_prints = []
-
-        col_p1, col_p2 = st.columns([1,1])
-        with col_p1:
-            pasted = paste_image_button(label="📋 COLAR PRINT (CTRL+V)")
-        with col_p2:
-            if st.button("🗑️ Limpar Tudo"):
-                st.session_state.lista_prints = []
-                st.rerun()
-
-        # Adicionar novo print
-        if pasted and pasted.image_data is not None:
-            # Criamos um identificador único para o componente de imagem
-            img_data = pasted.image_data
-            # Evita duplicata imediata por causa do ciclo de vida do Streamlit
-            if not st.session_state.lista_prints or hash(img_data.tobytes()) != st.session_state.get('ultimo_hash'):
-                st.session_state.lista_prints.append(img_data)
-                st.session_state.ultimo_hash = hash(img_data.tobytes())
-                st.rerun()
-
-        # Exibir galeria com botão Remover funcional
-        if st.session_state.lista_prints:
-            cols = st.columns(2)
-            for idx, img in enumerate(st.session_state.lista_prints):
-                with cols[idx % 2]:
-                    st.image(img, use_container_width=True)
-                    # Botão remover usando callback para garantir a execução
-                    st.button(f"❌ Remover #{idx+1}", key=f"rem_{idx}", on_click=remover_print, args=(idx,))
+        st.subheader("💬 Feedback do Financeiro")
+        try:
+            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
+            if fb.data:
+                for f in fb.data:
+                    with st.container(border=True):
+                        st.caption(f"Ref. {f['data_fechamento']}")
+                        st.write(f"**Gestor:** {f['replica_gestor']}")
+        except:
+            pass
 
         st.write("---")
         
-        with st.form("form_final_v5", clear_on_submit=False):
-            files = st.file_uploader("Arquivos Extras:", accept_multiple_files=True)
-            obs = st.text_area("Observações")
-            
-            if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                dados = {
-                    "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                    "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                    "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
-                    "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
-                    "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                    "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                    "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                    "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
-                }
-                
-                ok, res = db.salvar_fechamento(supabase, dados)
-                
-                if ok:
-                    # 1. Salvar Prints Colados
-                    for i, img in enumerate(st.session_state.lista_prints):
-                        buf = io.BytesIO()
-                        img.save(buf, format="JPEG", quality=80)
-                        db.fazer_upload_print(supabase, buf.getvalue(), f"{loja_id}/{data_sel}/v_{i}.jpg")
-                    
-                    # 2. Salvar Arquivos do Selecionador
-                    if files:
-                        for i, f in enumerate(files):
-                            db.fazer_upload_print(supabase, f.getvalue(), f"{loja_id}/{data_sel}/f_{i}_{f.name}")
-                    
-                    st.session_state.lista_prints = []
-                    st.success("✅ Tudo salvo com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Erro ao salvar dados.")
+        if not ja_existe:
+            with st.form("f_final_vFinal_v2", clear_on_submit=True):
+                imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True)
+                obs = st.text_area("Observações do Gerente")
+                if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
+                    dados = {
+                        "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
+                        "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
+                        "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
+                        "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
+                        "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
+                        "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
+                        "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
+                        "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
+                    }
+                    ok, res = db.salvar_fechamento(supabase, dados)
+                    if ok:
+                        if imgs:
+                            for i, f in enumerate(imgs):
+                                db.fazer_upload_print(supabase, f, f"loja_{loja_id}/{data_sel}/p_{i}.jpg")
+                        st.success("✅ Fechamento gravado!"); st.rerun()
