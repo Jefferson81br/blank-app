@@ -11,6 +11,7 @@ def linha_entrada(label, key):
     v_c = c3.number_input("R$", key=f"c_{key}", format="%.2f", step=0.01, label_visibility="collapsed")
     ace = v_c - v_s
     cor = "white" if ace == 0 else ("#ff4b4b" if ace < 0 else "#00ff00")
+    # Centraliza o valor do acerto para alinhar com o título da coluna
     c4.markdown(f"<div style='padding-top:10px; text-align:center; color:{cor}; font-weight:bold;'>R$ {ace:.2f}</div>", unsafe_allow_html=True)
     return v_s, v_c, ace
 
@@ -60,9 +61,16 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_vTitulos_v4")
-        ja_existe = str(data_sel) in datas_feitas
+        # DATA FORMATADA NO PADRÃO DD/MM/AAAA
+        data_sel = st.date_input(
+            "Data do Movimento", 
+            value=date.today(), 
+            max_value=date.today(), 
+            format="DD/MM/YYYY", # Aqui define a exibição brasileira no seletor
+            key="dt_mov_br_v1"
+        )
         
+        ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
         
@@ -114,7 +122,7 @@ def renderizar_tela(supabase, user):
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # Bloco de Subtotal de Saídas
+        # TOTALIZADOR DE SAÍDAS
         st.markdown(f"""
             <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
                 <table style='width:100%; border:none;'>
@@ -163,7 +171,7 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal_Titulos_v4", clear_on_submit=True):
+            with st.form("f_final_caixa_vFinal_BR", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
@@ -184,7 +192,7 @@ def renderizar_tela(supabase, user):
                         fechamento_id = res.data[0]['id']
                         urls_registradas = []
                         if imgs:
-                            with st.spinner('Enviando...'):
+                            with st.spinner('Enviando arquivos...'):
                                 for i, f in enumerate(imgs):
                                     caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
                                     db.fazer_upload_print(supabase, f, caminho)
@@ -193,6 +201,6 @@ def renderizar_tela(supabase, user):
                                 supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
                         
                         st.balloons()
-                        st.success(f"✅ Salvo!")
+                        st.success(f"✅ Fechamento da {nome_loja_exibir} realizado com sucesso!")
                         time.sleep(2)
                         st.rerun()
