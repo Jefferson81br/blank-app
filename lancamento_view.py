@@ -22,7 +22,6 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
-    # Layout Principal com a proporção que você validou
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
     lojas_res = db.buscar_lojas(supabase)
@@ -51,13 +50,11 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_final_v1")
+        data_sel = st.date_input("Data do Movimento", value=date.today(), max_value=date.today(), key="dt_mov_f")
         
-        # VALIDAÇÃO DE DATA JÁ PREENCHIDA
         ja_existe = str(data_sel) in datas_feitas
         if ja_existe:
             st.error(f"❌ ERRO: Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
-            st.info("Para correções, utilize a tela de Auditoria.")
         
         st.write("---")
         
@@ -78,11 +75,19 @@ def renderizar_tela(supabase, user):
         t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
         t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
+        # Ajuste Estético 1: Totais alinhados abaixo das colunas
+        st.write("")
+        ct1, ct2, ct3, ct4 = st.columns([2, 2, 2, 1.5])
+        ct1.write("**TOTAIS:**")
+        ct2.write(f"**R$ {t_s_ent:,.2f}**")
+        ct3.markdown(f"<span style='color:#00ff00; font-weight:bold;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
+        cor_t_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
+        ct4.markdown(f"<span style='color:{cor_t_ace}; font-weight:bold;'>R$ {t_a_ent:,.2f}</span>", unsafe_allow_html=True)
+
         st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333;'>
-                <b>SUBTOTAL ENTRADAS (VENDAS):</b> Sistema R$ {t_s_ent:,.2f} | 
-                <span style='color:#00ff00;'>Conf. R$ {t_c_ent:,.2f}</span> | 
-                <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span>
+            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
+                <small style='color:#aaa;'>RESUMO DAS VENDAS:</small><br>
+                Sistema R$ {t_s_ent:,.2f} | <span style='color:#00ff00;'>Conf. R$ {t_c_ent:,.2f}</span> | <span style='color:#ff4b4b;'>Diferença: R$ {t_a_ent:,.2f}</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -97,8 +102,6 @@ def renderizar_tela(supabase, user):
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # Lógica de Divergência Final: (Gaveta + Saídas) - Sistema
-        # Ex: (2600 + 500) - 3100 = 0.00
         divergencia_final = (t_c_ent + t_c_sai) - t_s_ent
         
         if -0.01 <= divergencia_final <= 0.01:
@@ -123,12 +126,12 @@ def renderizar_tela(supabase, user):
 
         st.divider()
         
-        # RESUMO FINAL
+        # Ajuste Estético 2: Texto e fonte do Resumo do Dia
         st.markdown(f"""
-            <div style="background-color:#1a1a1a; padding:15px; border-radius:10px; border-left: 5px solid #00ff00;">
-                <p style="margin:0; font-size:14px; color:#aaa;">SALDO FINAL EM ESPÉCIE (VALOR CONFERIDO)</p>
-                <h2 style="margin:0; color:#00ff00;">R$ {t_c_ent:,.2f}</h2>
-                <p style="margin:0; font-size:12px; color:{cor_div}; font-weight:bold;">
+            <div style="background-color:#1a1a1a; padding:20px; border-radius:10px; border-left: 5px solid #00ff00;">
+                <p style="margin:0; font-size:16px; color:#aaa; font-weight:bold;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                <h1 style="margin:0; color:#00ff00; font-size:42px;">R$ {t_c_ent:,.2f}</h1>
+                <p style="margin-top:10px; margin-bottom:0; font-size:18px; color:{cor_div}; font-weight:bold;">
                     Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
                 </p>
             </div>
@@ -137,7 +140,7 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info("### 📖 Instruções\n1. O valor Conferido deve ser o que sobrou na gaveta.\n2. Use as Saídas para justificar o que foi pago com dinheiro do caixa.\n3. O sistema calculará se o valor na mão + as saídas batem com a venda.")
+        st.info("### 📖 Instruções\nO valor **Conferido** deve ser o que sobrou no caixa.\nAs **Saídas** justificam o que foi pago com esse dinheiro.")
         
         st.subheader("💬 Feedback do Financeiro")
         try:
@@ -153,7 +156,7 @@ def renderizar_tela(supabase, user):
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_v1", clear_on_submit=True):
+            with st.form("f_final_caixa_vFinal", clear_on_submit=True):
                 imgs = st.file_uploader("Prints do Fechamento", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
