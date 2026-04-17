@@ -1,47 +1,43 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta # Adicionado timedelta aqui
 import database_utils as db
 import time
 
 def renderizar_tela(supabase, user):
     st.title("⚖️ Auditoria de Fechamentos")
 
-    def renderizar_tela(supabase, user):
-    st.title("⚖️ Auditoria de Fechamentos")
-
     # --- NOVO: BUSCA DATAS COM LANÇAMENTOS (Últimos 15 dias) ---
-    # Isso serve para dar o feedback visual de quais dias "existem" no banco
     data_limite_busca = date.today() - timedelta(days=15)
     
-    # Busca rápida apenas das datas que possuem registros ativos
-    res_datas = supabase.table("fechamentos")\
-        .select("data_fechamento, status_auditoria")\
-        .gte("data_fechamento", str(data_limite_busca))\
-        .eq("ativo", True)\
-        .execute()
+    try:
+        res_datas = supabase.table("fechamentos")\
+            .select("data_fechamento, status_auditoria")\
+            .gte("data_fechamento", str(data_limite_busca))\
+            .eq("ativo", True)\
+            .execute()
 
-    if res_datas.data:
-        # Organiza as datas únicas e seus status
-        mapa_status = {d['data_fechamento']: d['status_auditoria'] for d in res_datas.data}
-        datas_disponiveis = sorted(list(mapa_status.keys()), reverse=True)
+        if res_datas.data:
+            # Organiza as datas únicas e seus status
+            mapa_status = {d['data_fechamento']: d['status_auditoria'] for d in res_datas.data}
+            datas_disponiveis = sorted(list(mapa_status.keys()), reverse=True)
 
-        st.write("📅 **Dias com lançamentos detectados:**")
-        cols_datas = st.columns(len(datas_disponiveis) if len(datas_disponiveis) < 10 else 10)
-        
-        for i, dt_str in enumerate(datas_disponiveis[:10]): # Mostra os últimos 10 dias com dados
-            with cols_datas[i]:
-                # Formata a data para exibir no botão
-                dt_obj = date.fromisoformat(dt_str)
-                label = dt_obj.strftime("%d/%m")
-                
-                # Define um emoji baseado no status para o auditor saber o que falta
-                emoji = "🟡" if mapa_status[dt_str] == "Pendente" else "✅"
-                
-                if st.button(f"{emoji}\n{label}", key=f"btn_dt_{dt_str}"):
-                    # Ao clicar, injetamos a data no estado da sessão para o date_input ler
-                    st.session_state.auditoria_date_manual = dt_obj
-                    st.rerun()
+            st.write("📅 **Dias com lançamentos detectados (Atalhos):**")
+            # Criamos colunas dinâmicas para os botões
+            qtd_datas = len(datas_disponiveis)
+            cols_datas = st.columns(qtd_datas if qtd_datas < 10 else 10)
+            
+            for i, dt_str in enumerate(datas_disponiveis[:10]):
+                with cols_datas[i]:
+                    dt_obj = date.fromisoformat(dt_str)
+                    label = dt_obj.strftime("%d/%m")
+                    emoji = "🟡" if mapa_status[dt_str] == "Pendente" else "✅"
+                    
+                    if st.button(f"{emoji}\n{label}", key=f"btn_dt_{dt_str}"):
+                        st.session_state.auditoria_date_manual = dt_obj
+                        st.rerun()
+    except:
+        pass # Silencia erro se a tabela estiver vazia no início
 
     st.write("---")
 
@@ -52,7 +48,7 @@ def renderizar_tela(supabase, user):
     c1, c2, c3 = st.columns([2, 1, 1])
     loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
     
-    # AJUSTE: O date_input agora tenta ler do session_state se o auditor clicou no atalho
+    # Define a data padrão baseada no clique do botão ou na data atual
     data_padrao = st.session_state.get('auditoria_date_manual', date.today())
     
     data_sel = c2.date_input(
@@ -61,21 +57,18 @@ def renderizar_tela(supabase, user):
         format="DD/MM/YYYY"
     )
     
-    # ... Restante do seu código original ...
-     
     loja_id = mapa_lojas[loja_nome]
 
+    # Busca o fechamento
     res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
 
     if res and res.data:
         d = res.data[0]
-        # Mantendo proporção similar ao lançamento para consistência visual
         col_dados, col_auditoria = st.columns([2.2, 2])
 
         with col_dados:
             st.subheader("📋 Conferência de Valores")
             
-            # --- GRUPO 1: ENTRADAS ---
             entradas = [
                 {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
                 {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
@@ -104,7 +97,6 @@ def renderizar_tela(supabase, user):
                 </div>
             """, unsafe_allow_html=True)
 
-            # --- GRUPO 2: SAÍDAS ---
             st.subheader("📤 Saídas (Justificativas)")
             saidas = [
                 {"Descrição": "DESPESA", "Conferência": d['conf_despesa']},
@@ -117,15 +109,9 @@ def renderizar_tela(supabase, user):
             
             t_conf_sai = df_sai['Conferência'].sum()
 
-            # Lógica de Divergência Final (Gaveta + Saídas) - Sistema
             divergencia_final = (t_conf_ent + t_conf_sai) - t_sis_ent
-            
-            if -0.01 <= divergencia_final <= 0.01:
-                cor_div = "#00ff00"; label_div = "Caixa Ajustado (OK)"
-            elif divergencia_final < 0:
-                cor_div = "#ff4b4b"; label_div = "Divergência: FALTA"
-            else:
-                cor_div = "#33ccff"; label_div = "Divergência: SOBRA"
+            cor_div = "#00ff00" if -0.01 <= divergencia_final <= 0.01 else ("#ff4b4b" if divergencia_final < 0 else "#33ccff")
+            label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia_final <= 0.01 else ("FALTA" if divergencia_final < 0 else "SOBRA")
 
             st.markdown(f"""
                 <div style='background-color:#1a1a1a; padding:10px; border-radius:5px; border:1px solid #333; margin-bottom:20px;'>
@@ -133,7 +119,6 @@ def renderizar_tela(supabase, user):
                 </div>
             """, unsafe_allow_html=True)
 
-            # --- CARD FINAL DE IMPACTO ---
             st.markdown(f"""
                 <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
                     <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
@@ -195,7 +180,7 @@ def renderizar_tela(supabase, user):
                     else:
                         st.error("Erro ao conectar com o banco de dados.")
 
-        # --- BOTÃO DE INATIVAÇÃO (AGORA FORA DAS COLUNAS PARA GARANTIR VISIBILIDADE) ---
+        # --- BOTÃO DE INATIVAÇÃO ---
         st.write("---")
         st.subheader("🛠️ Gestão de Erros")
         with st.expander("⚠️ Inativar este lançamento"):
@@ -209,7 +194,6 @@ def renderizar_tela(supabase, user):
                     "auditado_por": user['nome'],
                     "status_auditoria": "Inativado"
                 }
-                # Fazemos o update direto para inativar
                 try:
                     res_anular = supabase.table("fechamentos").update(dados_anular).eq("id", d['id']).execute()
                     if res_anular:
@@ -218,6 +202,5 @@ def renderizar_tela(supabase, user):
                         st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao inativar: {e}")
-
     else:
         st.info("Nenhum lançamento encontrado para os filtros selecionados.")
