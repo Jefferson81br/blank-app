@@ -11,7 +11,6 @@ def linha_entrada(label, key):
     v_c = c3.number_input("R$", key=f"c_{key}", format="%.2f", step=0.01, label_visibility="collapsed")
     ace = v_c - v_s
     cor = "white" if ace == 0 else ("#ff4b4b" if ace < 0 else "#00ff00")
-    # Centraliza o valor do acerto para alinhar com o título da coluna
     c4.markdown(f"<div style='padding-top:10px; text-align:center; color:{cor}; font-weight:bold;'>R$ {ace:.2f}</div>", unsafe_allow_html=True)
     return v_s, v_c, ace
 
@@ -61,16 +60,15 @@ def renderizar_tela(supabase, user):
                 status = "🟢" if str(dia) in datas_feitas else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
-        # DATA FORMATADA NO PADRÃO DD/MM/AAAA
         data_sel = st.date_input(
             "Data do Movimento", 
             value=date.today(), 
             max_value=date.today(), 
-            format="DD/MM/YYYY", # Aqui define a exibição brasileira no seletor
-            key="dt_mov_br_v1"
+            format="DD/MM/YYYY", 
+            key="dt_mov_final_vTitulos_v4"
         )
-        
         ja_existe = str(data_sel) in datas_feitas
+        
         if ja_existe:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
         
@@ -122,7 +120,6 @@ def renderizar_tela(supabase, user):
         
         t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        # TOTALIZADOR DE SAÍDAS
         st.markdown(f"""
             <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
                 <table style='width:100%; border:none;'>
@@ -156,22 +153,25 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info(f"### 📖 Unidade {nome_loja_exibir}")
+        st.info(f"### 📖 Unidade {nome_lo_exibir if 'nome_lo_exibir' in locals() else nome_loja_exibir}")
         
         st.subheader("💬 Histórico de Feedbacks")
         try:
+            # AJUSTE: Formatação da data na exibição do feedback (Replica Gestor)
             fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
             if fb.data:
                 for f in fb.data:
+                    # Converte a string YYYY-MM-DD do banco para objeto date para formatar como DD/MM/YYYY
+                    dt_ref = date.fromisoformat(f['data_fechamento']).strftime('%d/%m/%Y')
                     with st.container(border=True):
-                        st.caption(f"Ref. {f['data_fechamento']}")
+                        st.caption(f"Ref. {dt_ref}")
                         st.write(f"**Gestor:** {f['replica_gestor']}")
         except: pass
 
         st.write("---")
         
         if not ja_existe:
-            with st.form("f_final_caixa_vFinal_BR", clear_on_submit=True):
+            with st.form("f_final_caixa_vFinal_Titulos_v4", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
@@ -192,7 +192,7 @@ def renderizar_tela(supabase, user):
                         fechamento_id = res.data[0]['id']
                         urls_registradas = []
                         if imgs:
-                            with st.spinner('Enviando arquivos...'):
+                            with st.spinner('Enviando...'):
                                 for i, f in enumerate(imgs):
                                     caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
                                     db.fazer_upload_print(supabase, f, caminho)
@@ -201,6 +201,6 @@ def renderizar_tela(supabase, user):
                                 supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
                         
                         st.balloons()
-                        st.success(f"✅ Fechamento da {nome_loja_exibir} realizado com sucesso!")
+                        st.success(f"✅ Salvo!")
                         time.sleep(2)
                         st.rerun()
