@@ -127,11 +127,20 @@ def renderizar_tela(supabase, user):
                 st.warning("⚠️ Aguardando Auditoria")
 
             with st.form("form_auditoria_vFinal"):
+                # Novos Checkboxes de conferência específica
+                c1, c2, c3 = st.columns(3)
+                check_sis = c1.checkbox("Comp. Sistema", value=d.get('check_sistema', False))
+                check_dep = c2.checkbox("Comp. Depósito", value=d.get('check_deposito', False))
+                check_des = c3.checkbox("Comp. Despesas", value=d.get('check_despesas', False))
+                
                 novo_feedback = st.text_area("Réplica / Feedback para o Gerente:", value=d.get('replica_gestor', ''))
                 confirmar = st.checkbox("Marcar como CONFERIDO / AUDITADO", value=(d.get('status_auditoria') == 'Auditado'))
                 
                 if st.form_submit_button("💾 SALVAR PARECER E ENVIAR", use_container_width=True):
                     dados_update = {
+                        "check_sistema": check_sis,
+                        "check_deposito": check_dep,
+                        "check_despesas": check_des,
                         "replica_gestor": novo_feedback,
                         "status_auditoria": "Auditado" if confirmar else "Pendente",
                         "auditado_por": user['nome']
