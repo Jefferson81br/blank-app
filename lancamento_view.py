@@ -153,21 +153,31 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.info(f"### 📖 Unidade {nome_lo_exibir if 'nome_lo_exibir' in locals() else nome_loja_exibir}")
+        # Pequeno ajuste de segurança na variável de nome da loja
+        nome_loja_display = nome_loja_exibir if 'nome_loja_exibir' in locals() else "Unidade"
+        st.info(f"### 📖 {nome_loja_display}")
         
         st.subheader("💬 Histórico de Feedbacks")
         try:
-            # AJUSTE: Formatação da data na exibição do feedback (Replica Gestor)
-            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(2).execute()
+            # ALTERAÇÃO: Aumentado para .limit(5) para cobrir o acúmulo de final de semana
+            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor") \
+                .eq("loja_id", loja_id) \
+                .neq("replica_gestor", "None") \
+                .order("data_fechamento", desc=True) \
+                .limit(5) \
+                .execute()
+                
             if fb.data:
                 for f in fb.data:
-                    # Converte a string YYYY-MM-DD do banco para objeto date para formatar como DD/MM/YYYY
+                    # Mantendo a formatação brasileira da data que corrigimos
                     dt_ref = date.fromisoformat(f['data_fechamento']).strftime('%d/%m/%Y')
                     with st.container(border=True):
                         st.caption(f"Ref. {dt_ref}")
                         st.write(f"**Gestor:** {f['replica_gestor']}")
-        except: pass
-
+            else:
+                st.write("*Nenhum feedback recente.*")
+        except Exception as e:
+            st.error(f"Erro ao carregar feedbacks: {e}")
         st.write("---")
         
         if not ja_existe:
