@@ -1,29 +1,37 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta # Adicionado timedelta aqui
+from datetime import date, timedelta
 import database_utils as db
 import time
 
 def renderizar_tela(supabase, user):
     st.title("⚖️ Auditoria de Fechamentos")
 
-    # --- NOVO: BUSCA DATAS COM LANÇAMENTOS (Últimos 15 dias) ---
+    # --- 1. SELEÇÃO DA UNIDADE (FILTRO PRINCIPAL) ---
+    lojas_res = db.buscar_lojas(supabase)
+    mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
+    
+    c1, c2, c3 = st.columns([2, 1, 1])
+    loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
+    loja_id = mapa_lojas[loja_nome]
+
+    # --- 2. BUSCA DATAS COM LANÇAMENTOS APENAS DESTA LOJA ---
     data_limite_busca = date.today() - timedelta(days=15)
     
     try:
         res_datas = supabase.table("fechamentos")\
             .select("data_fechamento, status_auditoria")\
+            .eq("loja_id", loja_id)\
             .gte("data_fechamento", str(data_limite_busca))\
             .eq("ativo", True)\
             .execute()
 
         if res_datas.data:
-            # Organiza as datas únicas e seus status
+            # Organiza as datas e status da loja selecionada
             mapa_status = {d['data_fechamento']: d['status_auditoria'] for d in res_datas.data}
             datas_disponiveis = sorted(list(mapa_status.keys()), reverse=True)
 
-            st.write("📅 **Dias com lançamentos detectados (Atalhos):**")
-            # Criamos colunas dinâmicas para os botões
+            st.write(f"📅 **Lançamentos detectados em {loja_nome}:**")
             qtd_datas = len(datas_disponiveis)
             cols_datas = st.columns(qtd_datas if qtd_datas < 10 else 10)
             
@@ -36,19 +44,14 @@ def renderizar_tela(supabase, user):
                     if st.button(f"{emoji}\n{label}", key=f"btn_dt_{dt_str}"):
                         st.session_state.auditoria_date_manual = dt_obj
                         st.rerun()
+        else:
+            st.caption(f"ℹ️ Nenhuma pendência recente encontrada para {loja_nome}.")
     except:
-        pass # Silencia erro se a tabela estiver vazia no início
+        pass
 
     st.write("---")
 
-    # --- FILTROS DE BUSCA ---
-    lojas_res = db.buscar_lojas(supabase)
-    mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
-    
-    c1, c2, c3 = st.columns([2, 1, 1])
-    loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
-    
-    # Define a data padrão baseada no clique do botão ou na data atual
+    # --- 3. SELEÇÃO DE DATA ---
     data_padrao = st.session_state.get('auditoria_date_manual', date.today())
     
     data_sel = c2.date_input(
@@ -57,18 +60,17 @@ def renderizar_tela(supabase, user):
         format="DD/MM/YYYY"
     )
     
-    loja_id = mapa_lojas[loja_nome]
-
-    # Busca o fechamento
+    # Busca o fechamento específico para exibir os detalhes abaixo
     res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
 
     if res and res.data:
         d = res.data[0]
+        # ... (O restante do código de exibição das tabelas de ENTRADAS e SAÍDAS permanece idêntico)
         col_dados, col_auditoria = st.columns([2.2, 2])
-
+        
         with col_dados:
             st.subheader("📋 Conferência de Valores")
-            
+            # --- (Mantenha aqui seu código das tabelas de entradas, acertos e resumo) ---
             entradas = [
                 {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
                 {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
@@ -83,7 +85,6 @@ def renderizar_tela(supabase, user):
             ]
             df_ent = pd.DataFrame(entradas)
             df_ent['Acerto'] = df_ent['Conferência'] - df_ent['Sistema']
-            
             st.table(df_ent.style.format({"Sistema": "{:.2f}", "Conferência": "{:.2f}", "Acerto": "{:.2f}"}))
             
             t_sis_ent = df_ent['Sistema'].sum()
@@ -106,7 +107,6 @@ def renderizar_tela(supabase, user):
             ]
             df_sai = pd.DataFrame(saidas)
             st.table(df_sai.style.format({"Conferência": "{:.2f}"}))
-            
             t_conf_sai = df_sai['Conferência'].sum()
 
             divergencia_final = (t_conf_ent + t_conf_sai) - t_sis_ent
@@ -128,7 +128,6 @@ def renderizar_tela(supabase, user):
                         Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
                     </p>
                 </div>
-                <br>
             """, unsafe_allow_html=True)
 
         with col_auditoria:
@@ -136,71 +135,44 @@ def renderizar_tela(supabase, user):
             with st.container(border=True):
                 st.markdown("**📝 Observações do Gerente:**")
                 st.info(d['observacoes'] if d['observacoes'] else "Nenhuma observação.")
-                
                 st.markdown("**🖼️ Anexos:**")
                 if d.get('urls_prints'):
                     cols_img = st.columns(2)
                     for idx, url in enumerate(d['urls_prints']):
-                        with cols_img[idx % 2]:
-                            st.image(url, use_container_width=True)
-                else:
-                    st.warning("Sem comprovantes.")
+                        with cols_img[idx % 2]: st.image(url, use_container_width=True)
+                else: st.warning("Sem comprovantes.")
 
             st.write("---")
             st.subheader("✍️ Parecer do Financeiro")
-            
-            if d.get('auditado_por'):
-                st.success(f"✅ Auditado por: **{d['auditado_por']}**")
-            else:
-                st.warning("⚠️ Aguardando Auditoria")
+            if d.get('auditado_por'): st.success(f"✅ Auditado por: **{d['auditado_por']}**")
+            else: st.warning("⚠️ Aguardando Auditoria")
 
             with st.form("form_auditoria_vFinal"):
-                c1, c2, c3 = st.columns(3)
-                check_sis = c1.checkbox("Comp. Sistema", value=d.get('check_sistema', False))
-                check_dep = c2.checkbox("Comp. Depósito", value=d.get('check_deposito', False))
-                check_des = c3.checkbox("Comp. Despesas", value=d.get('check_despesas', False))
+                cx1, cx2, cx3 = st.columns(3)
+                check_sis = cx1.checkbox("Comp. Sistema", value=d.get('check_sistema', False))
+                check_dep = cx2.checkbox("Comp. Depósito", value=d.get('check_deposito', False))
+                check_des = cx3.checkbox("Comp. Despesas", value=d.get('check_despesas', False))
                 
                 novo_feedback = st.text_area("Réplica / Feedback para o Gerente:", value=d.get('replica_gestor', ''))
                 confirmar = st.checkbox("Marcar como CONFERIDO / AUDITADO", value=(d.get('status_auditoria') == 'Auditado'))
                 
                 if st.form_submit_button("💾 SALVAR PARECER E ENVIAR", use_container_width=True):
                     dados_update = {
-                        "check_sistema": check_sis,
-                        "check_deposito": check_dep,
-                        "check_despesas": check_des,
-                        "replica_gestor": novo_feedback,
-                        "status_auditoria": "Auditado" if confirmar else "Pendente",
+                        "check_sistema": check_sis, "check_deposito": check_dep, "check_despesas": check_des,
+                        "replica_gestor": novo_feedback, "status_auditoria": "Auditado" if confirmar else "Pendente",
                         "auditado_por": user['nome']
                     }
-                    sucesso = db.atualizar_auditoria(supabase, d['id'], dados_update)
-                    if sucesso:
-                        st.success("Auditoria salva com sucesso!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Erro ao conectar com o banco de dados.")
+                    if db.atualizar_auditoria(supabase, d['id'], dados_update):
+                        st.success("Auditoria salva!"); time.sleep(1); st.rerun()
 
-        # --- BOTÃO DE INATIVAÇÃO ---
+        # Botão de Inativação (Zona de Perigo)
         st.write("---")
         st.subheader("🛠️ Gestão de Erros")
         with st.expander("⚠️ Inativar este lançamento"):
-            st.warning("Isso ocultará este lançamento e permitirá que o gerente envie um novo para este dia.")
-            motivo_inativacao = st.text_input("Motivo da Inativação (Opcional):")
-            
-            if st.button("🚫 CONFIRMAR INATIVAÇÃO E LIBERAR REENVIO"):
-                dados_anular = {
-                    "ativo": False,
-                    "replica_gestor": f"LANÇAMENTO INVALIDADO: {motivo_inativacao}",
-                    "auditado_por": user['nome'],
-                    "status_auditoria": "Inativado"
-                }
-                try:
-                    res_anular = supabase.table("fechamentos").update(dados_anular).eq("id", d['id']).execute()
-                    if res_anular:
-                        st.success("Lançamento inativado! O dia está livre para um novo envio.")
-                        time.sleep(2)
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao inativar: {e}")
+            motivo_inativacao = st.text_input("Motivo da Inativação:")
+            if st.button("🚫 CONFIRMAR INATIVAÇÃO"):
+                dados_anular = {"ativo": False, "replica_gestor": f"INVALIDADO: {motivo_inativacao}", "auditado_por": user['nome'], "status_auditoria": "Inativado"}
+                if supabase.table("fechamentos").update(dados_anular).eq("id", d['id']).execute():
+                    st.success("Inativado!"); time.sleep(2); st.rerun()
     else:
-        st.info("Nenhum lançamento encontrado para os filtros selecionados.")
+        st.info(f"Nenhum lançamento encontrado para {loja_nome} em {data_sel.strftime('%d/%m/%Y')}.")
