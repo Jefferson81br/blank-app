@@ -12,7 +12,14 @@ def renderizar_tela(supabase, user):
     
     c1, c2, c3 = st.columns([2, 1, 1])
     loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
-    data_sel = c2.date_input("Data do Movimento:", value=date.today())
+    
+    # AJUSTE: Formato de data brasileiro no seletor
+    data_sel = c2.date_input(
+        "Data do Movimento:", 
+        value=date.today(),
+        format="DD/MM/YYYY"
+    )
+    
     loja_id = mapa_lojas[loja_nome]
 
     res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
@@ -25,7 +32,7 @@ def renderizar_tela(supabase, user):
         with col_dados:
             st.subheader("📋 Conferência de Valores")
             
-            # --- GRUPO 1: ENTRADAS (Correção do mapeamento do Boleto aqui) ---
+            # --- GRUPO 1: ENTRADAS ---
             entradas = [
                 {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
                 {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
@@ -83,7 +90,7 @@ def renderizar_tela(supabase, user):
                 </div>
             """, unsafe_allow_html=True)
 
-            # --- CARD FINAL DE IMPACTO (Igual ao Lançamento) ---
+            # --- CARD FINAL DE IMPACTO ---
             st.markdown(f"""
                 <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
                     <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
@@ -114,7 +121,6 @@ def renderizar_tela(supabase, user):
             st.write("---")
             st.subheader("✍️ Parecer do Financeiro")
             
-            # Informações de Auditoria Anterior
             if d.get('auditado_por'):
                 st.success(f"✅ Auditado por: **{d['auditado_por']}**")
             else:
