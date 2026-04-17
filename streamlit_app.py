@@ -114,7 +114,7 @@ else:
         if st.sidebar.button("⚖️ Auditoria / Correção", use_container_width=True):
             st.session_state.pagina_ativa = "⚖️ Auditoria / Correção"; st.rerun()
         if st.sidebar.button("📋 Relatórios", use_container_width=True):
-            st.session_state.tela_atual = "relatorios"; st.rerun()
+            st.session_state.pagina_ativa = "relatorios"; st.rerun()
     
     # Menu de Lançamento (Gerente e Admin)
     if user['funcao'] in ['gerente', 'admin']:
