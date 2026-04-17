@@ -128,7 +128,6 @@ def renderizar_tela(supabase, user):
                 st.warning("⚠️ Aguardando Auditoria")
 
             with st.form("form_auditoria_vFinal"):
-                # Novos Checkboxes de conferência específica
                 c1, c2, c3 = st.columns(3)
                 check_sis = c1.checkbox("Comp. Sistema", value=d.get('check_sistema', False))
                 check_dep = c2.checkbox("Comp. Depósito", value=d.get('check_deposito', False))
@@ -146,7 +145,6 @@ def renderizar_tela(supabase, user):
                         "status_auditoria": "Auditado" if confirmar else "Pendente",
                         "auditado_por": user['nome']
                     }
-                    
                     sucesso = db.atualizar_auditoria(supabase, d['id'], dados_update)
                     if sucesso:
                         st.success("Auditoria salva com sucesso!")
@@ -155,29 +153,29 @@ def renderizar_tela(supabase, user):
                     else:
                         st.error("Erro ao conectar com o banco de dados.")
 
-            # --- BOTÃO DE INATIVAÇÃO (ZONA DE ERROS) ---
-            st.divider()
-            st.subheader("🛠️ Gestão de Erros")
-
-            with st.expander("⚠️ Inativar este lançamento"):
-                st.warning("Isso ocultará este lançamento do Dashboard e permitirá que o gerente envie um novo para este dia.")
-                motivo_inativacao = st.text_input("Motivo da Inativação (Opcional):")
-                
-                if st.button("🚫 CONFIRMAR INATIVAÇÃO E LIBERAR REENVIO"):
-                    # Preparamos os dados para "anular" o registro
-                    dados_anular = {
-                        "ativo": False,
-                        "replica_gestor": f"LANÇAMENTO INVALIDADO: {motivo_inativacao}",
-                        "auditado_por": user['nome'],
-                        "status_auditoria": "Inativado"
-                    }
-                    
-                    # Fazemos um update em vez de delete
-                    sucesso = supabase.table("fechamentos").update(dados_anular).eq("id", d['id']).execute()
-                    
-                    if sucesso:
+        # --- BOTÃO DE INATIVAÇÃO (AGORA FORA DAS COLUNAS PARA GARANTIR VISIBILIDADE) ---
+        st.write("---")
+        st.subheader("🛠️ Gestão de Erros")
+        with st.expander("⚠️ Inativar este lançamento"):
+            st.warning("Isso ocultará este lançamento e permitirá que o gerente envie um novo para este dia.")
+            motivo_inativacao = st.text_input("Motivo da Inativação (Opcional):")
+            
+            if st.button("🚫 CONFIRMAR INATIVAÇÃO E LIBERAR REENVIO"):
+                dados_anular = {
+                    "ativo": False,
+                    "replica_gestor": f"LANÇAMENTO INVALIDADO: {motivo_inativacao}",
+                    "auditado_por": user['nome'],
+                    "status_auditoria": "Inativado"
+                }
+                # Fazemos o update direto para inativar
+                try:
+                    res_anular = supabase.table("fechamentos").update(dados_anular).eq("id", d['id']).execute()
+                    if res_anular:
                         st.success("Lançamento inativado! O dia está livre para um novo envio.")
                         time.sleep(2)
                         st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao inativar: {e}")
+
     else:
         st.info("Nenhum lançamento encontrado para os filtros selecionados.")
