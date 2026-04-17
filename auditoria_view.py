@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 import database_utils as db
+import time
 
 def renderizar_tela(supabase, user):
     st.title("⚖️ Auditoria de Fechamentos")
@@ -149,8 +150,34 @@ def renderizar_tela(supabase, user):
                     sucesso = db.atualizar_auditoria(supabase, d['id'], dados_update)
                     if sucesso:
                         st.success("Auditoria salva com sucesso!")
+                        time.sleep(1)
                         st.rerun()
                     else:
                         st.error("Erro ao conectar com o banco de dados.")
+
+            # --- BOTÃO DE INATIVAÇÃO (ZONA DE ERROS) ---
+            st.divider()
+            st.subheader("🛠️ Gestão de Erros")
+
+            with st.expander("⚠️ Inativar este lançamento"):
+                st.warning("Isso ocultará este lançamento do Dashboard e permitirá que o gerente envie um novo para este dia.")
+                motivo_inativacao = st.text_input("Motivo da Inativação (Opcional):")
+                
+                if st.button("🚫 CONFIRMAR INATIVAÇÃO E LIBERAR REENVIO"):
+                    # Preparamos os dados para "anular" o registro
+                    dados_anular = {
+                        "ativo": False,
+                        "replica_gestor": f"LANÇAMENTO INVALIDADO: {motivo_inativacao}",
+                        "auditado_por": user['nome'],
+                        "status_auditoria": "Inativado"
+                    }
+                    
+                    # Fazemos um update em vez de delete
+                    sucesso = supabase.table("fechamentos").update(dados_anular).eq("id", d['id']).execute()
+                    
+                    if sucesso:
+                        st.success("Lançamento inativado! O dia está livre para um novo envio.")
+                        time.sleep(2)
+                        st.rerun()
     else:
         st.info("Nenhum lançamento encontrado para os filtros selecionados.")
