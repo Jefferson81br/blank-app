@@ -8,7 +8,8 @@ import dashboard_view
 import lancamento_view
 import usuarios_view
 import lojas_view
-import auditoria_view  # Novo módulo de auditoria
+import auditoria_view 
+import relatorios_view
 
 from datetime import date, timedelta
 import pandas as pd
