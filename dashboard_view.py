@@ -20,7 +20,14 @@ def renderizar_tela(supabase, user):
         lista_ids = [user['unidade_id']]
         col_filtros_1.info(f"Unidade: {user['unidade_id']}")
 
-    data_sel = col_filtros_2.date_input("Data do Movimento:", value=date.today(), max_value=date.today(), key="dash_dt_vFinal")
+    # AJUSTE: Adicionado format="DD/MM/YYYY" para padrão brasileiro
+    data_sel = col_filtros_2.date_input(
+        "Data do Movimento:", 
+        value=date.today(), 
+        max_value=date.today(), 
+        format="DD/MM/YYYY", 
+        key="dash_dt_vFinal"
+    )
 
     if not lista_ids: st.stop()
 
