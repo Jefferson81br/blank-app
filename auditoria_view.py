@@ -7,6 +7,44 @@ import time
 def renderizar_tela(supabase, user):
     st.title("⚖️ Auditoria de Fechamentos")
 
+    def renderizar_tela(supabase, user):
+    st.title("⚖️ Auditoria de Fechamentos")
+
+    # --- NOVO: BUSCA DATAS COM LANÇAMENTOS (Últimos 15 dias) ---
+    # Isso serve para dar o feedback visual de quais dias "existem" no banco
+    data_limite_busca = date.today() - timedelta(days=15)
+    
+    # Busca rápida apenas das datas que possuem registros ativos
+    res_datas = supabase.table("fechamentos")\
+        .select("data_fechamento, status_auditoria")\
+        .gte("data_fechamento", str(data_limite_busca))\
+        .eq("ativo", True)\
+        .execute()
+
+    if res_datas.data:
+        # Organiza as datas únicas e seus status
+        mapa_status = {d['data_fechamento']: d['status_auditoria'] for d in res_datas.data}
+        datas_disponiveis = sorted(list(mapa_status.keys()), reverse=True)
+
+        st.write("📅 **Dias com lançamentos detectados:**")
+        cols_datas = st.columns(len(datas_disponiveis) if len(datas_disponiveis) < 10 else 10)
+        
+        for i, dt_str in enumerate(datas_disponiveis[:10]): # Mostra os últimos 10 dias com dados
+            with cols_datas[i]:
+                # Formata a data para exibir no botão
+                dt_obj = date.fromisoformat(dt_str)
+                label = dt_obj.strftime("%d/%m")
+                
+                # Define um emoji baseado no status para o auditor saber o que falta
+                emoji = "🟡" if mapa_status[dt_str] == "Pendente" else "✅"
+                
+                if st.button(f"{emoji}\n{label}", key=f"btn_dt_{dt_str}"):
+                    # Ao clicar, injetamos a data no estado da sessão para o date_input ler
+                    st.session_state.auditoria_date_manual = dt_obj
+                    st.rerun()
+
+    st.write("---")
+
     # --- FILTROS DE BUSCA ---
     lojas_res = db.buscar_lojas(supabase)
     mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
@@ -14,13 +52,17 @@ def renderizar_tela(supabase, user):
     c1, c2, c3 = st.columns([2, 1, 1])
     loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
     
-    # AJUSTE: Formato de data brasileiro no seletor
+    # AJUSTE: O date_input agora tenta ler do session_state se o auditor clicou no atalho
+    data_padrao = st.session_state.get('auditoria_date_manual', date.today())
+    
     data_sel = c2.date_input(
         "Data do Movimento:", 
-        value=date.today(),
+        value=data_padrao,
         format="DD/MM/YYYY"
     )
     
+    # ... Restante do seu código original ...
+     
     loja_id = mapa_lojas[loja_nome]
 
     res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
