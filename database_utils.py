@@ -55,6 +55,8 @@ def fazer_upload_print(supabase, arquivo, caminho_destino):
 def salvar_fechamento(supabase, dados):
     """Salva os dados de fechamento na tabela e trata erros de duplicidade."""
     try:
+        # Garante que todo novo fechamento nasça como Ativo
+        dados["ativo"] = True
         res = supabase.table("fechamentos").insert(dados).execute()
         return True, res
     except Exception as e:
@@ -72,6 +74,7 @@ def buscar_fechamento_multiplas_lojas(supabase, lista_loja_ids, data_inicio, dat
             .in_("loja_id", lista_loja_ids)\
             .gte("data_fechamento", data_inicio)\
             .lte("data_fechamento", data_fim)\
+            .eq("ativo", True)\
             .order("data_fechamento")\
             .execute()
     except Exception as e:
@@ -86,6 +89,7 @@ def buscar_fechamento_por_data(supabase, loja_id, data_inicio, data_fim):
             .eq("loja_id", loja_id)\
             .gte("data_fechamento", data_inicio)\
             .lte("data_fechamento", data_fim)\
+            .eq("ativo", True)\
             .order("data_fechamento")\
             .execute()
     except Exception as e:
@@ -102,4 +106,21 @@ def atualizar_auditoria(supabase, registro_id, dados):
         return len(res.data) > 0
     except Exception as e:
         print(f"Erro ao atualizar auditoria: {e}")
+        return False
+
+def inativar_registro(supabase, registro_id, auditor_nome, motivo=""):
+    """
+    Realiza o Soft Delete (inativação) do registro para permitir reenvio.
+    """
+    try:
+        dados_anular = {
+            "ativo": False,
+            "replica_gestor": f"INVALIDADO: {motivo}",
+            "auditado_por": auditor_nome,
+            "status_auditoria": "Inativado"
+        }
+        res = supabase.table("fechamentos").update(dados_anular).eq("id", registro_id).execute()
+        return len(res.data) > 0
+    except Exception as e:
+        st.error(f"Erro ao inativar registro: {e}")
         return False
