@@ -138,7 +138,7 @@ else:
         auditoria_view.renderizar_tela(supabase, user)
 
     elif escolha == "📋 Relatórios":
-        relatorio_view.renderizar_tela(supabase, user)
+        relatorios_view.renderizar_tela(supabase, user)
 
     elif escolha == "👥 Consultar Usuários":
         usuarios_view.gerenciar_usuarios(supabase, user)
