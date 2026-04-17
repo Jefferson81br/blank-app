@@ -1,0 +1,35 @@
+# 📋 CHANGELOG: SISTEMA DE FECHAMENTO DE CAIXA
+**Versão:** 1.2
+**Data da última atualização:** 16/04/2026
+**Responsável:** Jefferson (Dev)
+
+---
+
+## 1. 🛡️ ARQUITETURA DE DADOS (DATABASE & BACKEND)
+- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). Registros invalidados agora recebem `False`, preservando o rastro de auditoria.
+- **Segurança de Duplicidade:** O sistema agora valida apenas lançamentos ATIVOS, impedindo duplicidade no mesmo dia/loja, mas permitindo reenvio se o anterior for inativado.
+- **Novos Campos de Auditoria:** Adicionadas colunas `check_sistema`, `check_deposito` e `check_despesas` (Boolean) na tabela `fechamentos`.
+- **Geração de URLs de Imagem:** Configurada integração com o bucket `comprovantes` do Supabase para exibição dinâmica de anexos via URL pública.
+
+## 2. 📝 TELA DE LANÇAMENTO DIÁRIO (UX/UI)
+- **Feedback de Unidade:** Banner visual no topo ("🏢 Loja XX") para confirmar a loja logada.
+- **Padronização de Títulos:** Inclusão dos rótulos SISTEMA, CONFERÊNCIA e ACERTO nos campos de entrada.
+- **UX de Sucesso:** Implementação de `st.balloons()` e `time.sleep(2)` após o salvamento para confirmação clara do envio.
+- **Histórico de Feedbacks:** Expandido de 2 para **5 feedbacks recentes**, garantindo que o gerente veja as auditorias acumuladas de fins de semana.
+- **Formatação PT-BR:** Datas agora exibidas no formato `DD/MM/YYYY`.
+
+## 3. ⚖️ TELA DE AUDITORIA (FINANCEIRO)
+- **Checklist Granular:** Inclusão de checkboxes para validação individual de comprovantes (Sistema, Depósito, Despesas).
+- **Gestão de Erros (Botão de Pânico):** Adicionado `st.expander` com botão para **Inativar Lançamento**. Ação automatizada que marca o registro como `ativo = False`, anota o motivo e libera a data para o gerente.
+- **Consistência Visual:** Alinhamento de colunas e cores idêntico à tela de lançamento para facilitar a comparação rápida.
+
+## 4. 🛠️ FUNÇÕES ATUALIZADAS (DATABASE_UTILS.PY)
+- `salvar_fechamento`: Agora inicializa registros com `ativo: True`.
+- `buscar_fechamento_multiplas_lojas`: Filtragem global adicionada: `.eq("ativo", True)`.
+- `buscar_fechamento_por_data`: Filtragem global adicionada: `.eq("ativo", True)`.
+- `inativar_registro`: Nova função para realizar o "Soft Delete" via UPDATE.
+- `atualizar_auditoria`: Atualizada para processar os novos checkboxes de conferência.
+
+---
+**Próximos Passos Sugeridos:**
+- Criar visão de "Lixeiro" ou "Histórico de Erros" para consultar lançamentos inativados.
