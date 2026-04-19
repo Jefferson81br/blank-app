@@ -49,7 +49,7 @@ def renderizar_tela(supabase, user):
             </div>
         """, unsafe_allow_html=True)
         
-        # --- BUSCA DE STATUS (7 DIAS) ---
+        # --- BUSCA DE STATUS (Visual 7 dias) ---
         data_orientacao = date.today() - timedelta(days=7)
         res_orientacao = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_orientacao), str(date.today()))
         datas_orientacao = [d['data_fechamento'] for d in res_orientacao.data] if res_orientacao.data else []
@@ -81,8 +81,7 @@ def renderizar_tela(supabase, user):
         
         if not ja_existe:
             st.subheader("📥 Entradas")
-            
-            h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
+            h2, h3, h4 = st.columns([2, 2, 2, 1.5])[1:]
             h2.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
             h3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
             h4.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>ACERTO</div>", unsafe_allow_html=True)
@@ -128,10 +127,10 @@ def renderizar_tela(supabase, user):
                 </div>
             """, unsafe_allow_html=True)
 
-            # LÓGICA VISUAL DO CARD (Entradas + Saídas - Sistema)
-            divergencia_visual = round((t_c_ent + t_c_sai) - t_s_ent, 2)
-            cor_div = "#00ff00" if -0.01 <= divergencia_visual <= 0.01 else ("#ff4b4b" if divergencia_visual < 0 else "#33ccff")
-            label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia_visual <= 0.01 else ("FALTA" if divergencia_visual < 0 else "SOBRA")
+            # CÁLCULO DA DIVERGÊNCIA REAL (O que falta/sobra após as justificativas)
+            divergencia_final = round((t_c_ent + t_c_sai) - t_s_ent, 2)
+            cor_div = "#00ff00" if -0.01 <= divergencia_final <= 0.01 else ("#ff4b4b" if divergencia_final < 0 else "#33ccff")
+            label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia_final <= 0.01 else ("FALTA" if divergencia_final < 0 else "SOBRA")
 
             st.divider()
 
@@ -141,7 +140,7 @@ def renderizar_tela(supabase, user):
                     <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
                     <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
                     <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
-                        Status da Auditoria: {label_div} (R$ {divergencia_visual:,.2f})
+                        Status da Auditoria: {label_div} (R$ {divergencia_final:,.2f})
                     </p>
                 </div>
             """, unsafe_allow_html=True)
@@ -153,8 +152,7 @@ def renderizar_tela(supabase, user):
         
         st.subheader("💬 Histórico de Feedbacks")
         try:
-            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor") \
-                .eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(5).execute()
+            fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor").eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(5).execute()
             if fb.data:
                 for f in fb.data:
                     dt_ref = date.fromisoformat(f['data_fechamento']).strftime('%d/%m/%Y')
@@ -172,13 +170,12 @@ def renderizar_tela(supabase, user):
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                    # CORREÇÃO DA QUEBRA: Divergência Real (Sistema vs Conferência de Entradas)
-                    # As saídas justificadas NÃO anulam a quebra no seu relatório de quebras.
-                    quebra_relatorio = round(t_c_ent - t_s_ent, 2)
+                    # CORREÇÃO APLICADA: O valor quebra deve ser o Saldo Final (Divergência Real)
+                    quebra_final_banco = round((t_c_ent + t_c_sai) - t_s_ent, 2)
                     
                     dados = {
                         "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                        "valor_quebra": quebra_relatorio,
+                        "valor_quebra": quebra_final_banco,
                         "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
                         "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
                         "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
