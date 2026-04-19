@@ -49,7 +49,7 @@ def renderizar_tela(supabase, user):
             </div>
         """, unsafe_allow_html=True)
         
-        # --- BUSCA DE STATUS (Visual de 7 dias para orientação) ---
+        # --- BUSCA DE STATUS (7 DIAS) ---
         data_orientacao = date.today() - timedelta(days=7)
         res_orientacao = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_orientacao), str(date.today()))
         datas_orientacao = [d['data_fechamento'] for d in res_orientacao.data] if res_orientacao.data else []
@@ -69,17 +69,16 @@ def renderizar_tela(supabase, user):
             key="dt_mov_final_vTitulos_v4"
         )
         
-        # --- VERIFICAÇÃO DE DUPLICIDADE (Ajustada para ser pontual e exata) ---
+        # VERIFICAÇÃO PONTUAL DE DUPLICIDADE
         res_duplicidade = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
         ja_existe = len(res_duplicidade.data) > 0 if res_duplicidade and res_duplicidade.data else False
         
         if ja_existe:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
-            st.warning("Para correções em datas passadas, solicite a inativação ao Financeiro.")
+            st.warning("Para correções, solicite ao Financeiro a inativação deste registro na tela de Auditoria.")
         
         st.write("---")
         
-        # --- SÓ RENDERIZA O FORMULÁRIO SE NÃO EXISTIR LANÇAMENTO ---
         if not ja_existe:
             st.subheader("📥 Entradas")
             
@@ -114,14 +113,13 @@ def renderizar_tela(supabase, user):
             st.write("---")
             
             st.subheader("📤 Saídas")
-            sh1, sh2, sh3, sh4 = st.columns([2, 2, 2, 1.5])
+            sh3 = st.columns([2, 2, 2, 1.5])[2]
             sh3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
 
             c_des = linha_saida("DESPESA", "des")
             c_vfu = linha_saida("VALE FUNC.", "vfu")
             c_dev = linha_saida("DEV. CARTÃO", "dev")
             c_out = linha_saida("OUTROS", "out")
-            
             t_c_sai = c_des + c_vfu + c_dev + c_out
 
             st.markdown(f"""
@@ -130,9 +128,10 @@ def renderizar_tela(supabase, user):
                 </div>
             """, unsafe_allow_html=True)
 
-            divergencia = round((t_c_ent + t_c_sai) - t_s_ent, 2)
-            cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
-            label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia <= 0.01 else ("FALTA" if divergencia < 0 else "SOBRA")
+            # LÓGICA VISUAL DO CARD (Entradas + Saídas - Sistema)
+            divergencia_visual = round((t_c_ent + t_c_sai) - t_s_ent, 2)
+            cor_div = "#00ff00" if -0.01 <= divergencia_visual <= 0.01 else ("#ff4b4b" if divergencia_visual < 0 else "#33ccff")
+            label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia_visual <= 0.01 else ("FALTA" if divergencia_visual < 0 else "SOBRA")
 
             st.divider()
 
@@ -142,7 +141,7 @@ def renderizar_tela(supabase, user):
                     <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
                     <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
                     <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
-                        Status da Auditoria: {label_div} (R$ {divergencia:,.2f})
+                        Status da Auditoria: {label_div} (R$ {divergencia_visual:,.2f})
                     </p>
                 </div>
             """, unsafe_allow_html=True)
@@ -155,22 +154,15 @@ def renderizar_tela(supabase, user):
         st.subheader("💬 Histórico de Feedbacks")
         try:
             fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor") \
-                .eq("loja_id", loja_id) \
-                .neq("replica_gestor", "None") \
-                .order("data_fechamento", desc=True) \
-                .limit(5) \
-                .execute()
-                
+                .eq("loja_id", loja_id).neq("replica_gestor", "None").order("data_fechamento", desc=True).limit(5).execute()
             if fb.data:
                 for f in fb.data:
                     dt_ref = date.fromisoformat(f['data_fechamento']).strftime('%d/%m/%Y')
                     with st.container(border=True):
                         st.caption(f"Ref. {dt_ref}")
                         st.write(f"**Gestor:** {f['replica_gestor']}")
-            else:
-                st.write("*Nenhum feedback recente.*")
-        except Exception as e:
-            st.error(f"Erro ao carregar feedbacks: {e}")
+            else: st.write("*Nenhum feedback recente.*")
+        except: pass
 
         st.write("---")
         
@@ -180,28 +172,20 @@ def renderizar_tela(supabase, user):
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                    quebra_calculada = round((t_c_ent + t_c_sai) - t_s_ent, 2)
+                    # CORREÇÃO DA QUEBRA: Divergência Real (Sistema vs Conferência de Entradas)
+                    # As saídas justificadas NÃO anulam a quebra no seu relatório de quebras.
+                    quebra_relatorio = round(t_c_ent - t_s_ent, 2)
                     
                     dados = {
-                        "loja_id": loja_id, 
-                        "usuario_id": user['id'], 
-                        "data_fechamento": str(data_sel),
-                        "valor_quebra": quebra_calculada,
-                        "sis_cartao": sc, "conf_cartao": cc, 
-                        "sis_crediario": sr, "conf_crediario": cr,
-                        "sis_dinheiro": sd, "conf_dinheiro": cd, 
-                        "sis_boleto": sb, "conf_boleto": cb,
-                        "sis_ifood": si, "conf_ifood": ci, 
-                        "sis_pbm": sp, "conf_pbm": cp, 
-                        "sis_pix": sx, "conf_pix": cx, 
-                        "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                        "sis_fapp": sf, "conf_fapp": cf, 
-                        "sis_vlink": sl, "conf_vlink": cl, 
-                        "conf_despesa": c_des, "conf_vale_func": c_vfu, 
-                        "conf_dev_cartao": c_dev, "conf_outros": c_out, 
-                        "observacoes": obs, 
-                        "status_auditoria": "Pendente",
-                        "ativo": True
+                        "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
+                        "valor_quebra": quebra_relatorio,
+                        "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
+                        "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
+                        "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
+                        "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
+                        "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
+                        "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, "conf_outros": c_out, 
+                        "observacoes": obs, "status_auditoria": "Pendente", "ativo": True
                     }
                     
                     ok, res = db.salvar_fechamento(supabase, dados)
@@ -209,15 +193,10 @@ def renderizar_tela(supabase, user):
                         fechamento_id = res.data[0]['id']
                         if imgs:
                             with st.spinner('Enviando...'):
-                                urls_registradas = []
+                                urls = []
                                 for i, f in enumerate(imgs):
-                                    caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
-                                    db.fazer_upload_print(supabase, f, caminho)
-                                    url_res = supabase.storage.from_("comprovantes").get_public_url(caminho)
-                                    urls_registradas.append(url_res)
-                                supabase.table("fechamentos").update({"urls_prints": urls_registradas}).eq("id", fechamento_id).execute()
-                        
-                        st.balloons()
-                        st.success(f"✅ Salvo!")
-                        time.sleep(2)
-                        st.rerun()
+                                    path = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
+                                    db.fazer_upload_print(supabase, f, path)
+                                    urls.append(supabase.storage.from_("comprovantes").get_public_url(path))
+                                supabase.table("fechamentos").update({"urls_prints": urls}).eq("id", fechamento_id).execute()
+                        st.balloons(); st.success("✅ Salvo!"); time.sleep(2); st.rerun()
