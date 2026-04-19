@@ -1,97 +1,98 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
+import calendar
 import database_utils as db
 
 def renderizar_tela(supabase, user):
     st.title("📉 Quebras de Caixa")
-    st.markdown("Consulte as divergências registradas entre o sistema e o valor físico.")
 
-    # --- FILTROS NO TOPO ---
-    with st.container(border=True):
-        c1, c2, c3 = st.columns([2, 1, 1])
-        
-        # Busca lojas para o filtro
-        lojas_res = db.buscar_lojas(supabase)
-        mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
-        
-        loja_sel = c1.multiselect(
-            "Filtrar Unidades:", 
-            options=list(mapa_lojas.keys()),
-            default=list(mapa_lojas.keys())
-        )
-        
-        # Padrão: últimos 7 dias
-        dt_ini = c2.date_input("Início:", value=date.today() - timedelta(days=7), format="DD/MM/YYYY")
-        dt_fim = c3.date_input("Fim:", value=date.today(), format="DD/MM/YYYY")
+    # --- 1. DEFINIÇÃO DE PERMISSÕES E SELEÇÃO DE LOJA ---
+    lojas_res = db.buscar_lojas(supabase)
+    mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
+    id_para_nome = {v: k for k, v in mapa_lojas.items()}
 
-    if not loja_sel:
-        st.warning("Selecione uma unidade para visualizar as quebras.")
-        st.stop()
+    # Se for gerente, trava na unidade dele. Se for admin/prop/financeiro, escolhe.
+    if user['funcao'] not in ['admin', 'proprietario', 'financeiro']:
+        loja_id_selecionada = user.get('unidade_id')
+        nome_loja_selecionada = id_para_nome.get(loja_id_selecionada, "Minha Unidade")
+        st.info(f"Exibindo dados de: **{nome_loja_selecionada}**")
+        lista_ids_busca = [loja_id_selecionada]
+    else:
+        with st.container(border=True):
+            loja_nome_sel = st.multiselect(
+                "Selecione as Unidades para análise:", 
+                options=list(mapa_lojas.keys()),
+                default=list(mapa_lojas.keys())[0] if mapa_lojas else None
+            )
+            lista_ids_busca = [mapa_lojas[n] for n in loja_nome_sel]
 
-    # Busca os dados no banco
-    lista_ids = [mapa_lojas[n] for n in loja_sel]
-    res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids, str(dt_ini), str(dt_fim))
+    # --- 2. CONFIGURAÇÃO DO PERÍODO (MENSAL OU ESPECÍFICO) ---
+    st.write("---")
+    tipo_filtro = st.radio("Tipo de Visualização:", ["Mensal", "Período Específico"], horizontal=True)
+
+    if tipo_filtro == "Mensal":
+        c1, c2 = st.columns(2)
+        mes_sel = c1.selectbox("Mês:", list(range(1, 13)), index=date.today().month - 1)
+        ano_sel = c2.selectbox("Ano:", [2025, 2026], index=1)
+        
+        # Define primeiro e último dia do mês
+        ultimo_dia = calendar.monthrange(ano_sel, mes_sel)[1]
+        dt_ini = date(ano_sel, mes_sel, 1)
+        dt_fim = date(ano_sel, mes_sel, ultimo_dia)
+    else:
+        c1, c2 = st.columns(2)
+        dt_ini = c1.date_input("Início:", value=date.today() - timedelta(days=30), format="DD/MM/YYYY")
+        dt_fim = c2.date_input("Fim:", value=date.today(), format="DD/MM/YYYY")
+
+    # --- 3. BUSCA E PROCESSAMENTO DE DADOS ---
+    res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids_busca, str(dt_ini), str(dt_fim))
 
     if res and res.data:
         df = pd.DataFrame(res.data)
+        df['data_fechamento'] = pd.to_datetime(df['data_fechamento']).dt.date
         
-        # Mapeamento do nome da loja
-        id_para_nome = {v: k for k, v in mapa_lojas.items()}
-        df['Loja'] = df['loja_id'].map(id_para_nome)
+        # Criamos um range completo de datas para o gráfico não ter "buracos"
+        idx = pd.date_range(dt_ini, dt_fim)
+        df_completo = pd.DataFrame({'data_fechamento': idx.date})
         
-        # Tratamento da data
-        df['Data'] = pd.to_datetime(df['data_fechamento']).dt.strftime('%d/%m/%Y')
+        # Agrupar dados por dia (somando se houver mais de uma loja selecionada)
+        df_diario = df.groupby('data_fechamento')['valor_quebra'].sum().reset_index()
+        
+        # Merge para garantir que todos os dias do mês apareçam
+        df_final = pd.merge(df_completo, df_diario, on='data_fechamento', how='left').fillna(0)
+        df_final['acumulado'] = df_final['valor_quebra'].cumsum()
 
-        # --- BLOCO DE MÉTRICAS ---
-        # Separamos o que é falta (negativo) e o que é sobra (positivo)
-        faltas = df[df['valor_quebra'] < 0]['valor_quebra'].sum()
-        sobras = df[df['valor_quebra'] > 0]['valor_quebra'].sum()
-        saldo_final = df['valor_quebra'].sum()
+        # --- 4. VISUALIZAÇÃO PRINCIPAL ---
+        m1, m2 = st.columns(2)
+        saldo_total = df_final['valor_quebra'].sum()
+        cor_saldo = "normal" if saldo_total >= 0 else "inverse"
+        
+        m1.metric("Diferença Total no Período", f"R$ {saldo_total:,.2f}", delta_color=cor_saldo)
+        m2.metric("Maior Falta Registrada", f"R$ {df_final['valor_quebra'].min():,.2f}")
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total de Faltas", f"R$ {faltas:,.2f}", delta_color="inverse")
-        m2.metric("Total de Sobras", f"R$ {sobras:,.2f}")
-        m3.metric("Saldo Líquido", f"R$ {saldo_final:,.2f}", 
-                  delta="OK" if -0.01 <= saldo_final <= 0.01 else f"{saldo_final:,.2f}")
+        st.subheader("📈 Linha do Tempo e Acumulado")
+        # Gráfico de barras (Dia a Dia) e Linha (Acumulado)
+        st.bar_chart(df_final.set_index('data_fechamento')['valor_quebra'])
+        
+        st.subheader("📉 Evolução do Saldo Acumulado")
+        st.line_chart(df_final.set_index('data_fechamento')['acumulado'])
 
-        st.write("---")
-
-        col_graf, col_tab = st.columns([1.5, 2])
-
-        with col_graf:
-            st.subheader("📊 Ranking por Unidade")
-            # Agrupa por loja para ver quem tem mais quebra acumulada no período
-            ranking = df.groupby('Loja')['valor_quebra'].sum().sort_values()
-            st.bar_chart(ranking)
-
-        with col_tab:
-            st.subheader("📝 Detalhamento")
-            # Exibe os dados de forma tabular para conferência rápida
-            df_view = df[['Data', 'Loja', 'valor_quebra', 'status_auditoria']].copy()
+        # --- 5. VISÃO ADMINISTRATIVA (COMPARATIVO ENTRE LOJAS) ---
+        if user['funcao'] in ['admin', 'proprietario', 'financeiro']:
+            st.write("---")
+            st.subheader("🏢 Comparativo de Quebra por Unidade")
             
-            # Ordena pela data mais recente
-            df_view = df_view.sort_values(by='Data', ascending=False)
-
-            st.dataframe(
-                df_view,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "valor_quebra": st.column_config.NumberColumn(
-                        "Divergência (R$)",
-                        format="R$ %.2f",
-                        help="Valores negativos indicam falta no caixa."
-                    ),
-                    "status_auditoria": "Status"
-                }
-            )
-
-        # --- ALERTA DE QUEBRAS CRÍTICAS ---
-        # Mostra apenas quebras maiores que R$ 10,00 (exemplo) para foco imediato
-        quebras_criticas = df[df['valor_quebra'].abs() > 10.00]
-        if not quebras_criticas.empty:
-            st.error(f"⚠️ Identificamos {len(quebras_criticas)} lançamentos com divergência superior a R$ 10,00.")
+            df['Loja'] = df['loja_id'].map(id_para_nome)
+            comp_lojas = df.groupby('Loja')['valor_quebra'].sum().sort_values()
             
+            st.bar_chart(comp_lojas)
+            
+            with st.expander("Ver detalhes por loja"):
+                st.dataframe(
+                    df.groupby('Loja')['valor_quebra'].agg(['sum', 'mean', 'count']).rename(
+                        columns={'sum': 'Total Quebra', 'mean': 'Média/Dia', 'count': 'Dias Lançados'}
+                    ), use_container_width=True
+                )
     else:
-        st.info("Nenhuma quebra registrada no período selecionado.")
+        st.info("Nenhum dado de quebra encontrado para os filtros selecionados.")
