@@ -186,8 +186,18 @@ def renderizar_tela(supabase, user):
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
+                    # Calculamos a quebra exatamente como exibimos no card visual
+                    # (Total Conferido Entradas + Total Saídas) - Total Sistema
+                    t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
+                    t_c_sai = c_des + c_vfu + c_dev + c_out
+                    t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
+    
+                    quebra_calculada = (t_c_ent + t_c_sai) - t_s_ent
+        
+                    
                     dados = {
                         "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
+                        "valor_quebra": quebra_calculada,  # <--- NOVA LINHA AQUI
                         "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
                         "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
                         "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
