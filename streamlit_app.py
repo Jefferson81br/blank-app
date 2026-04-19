@@ -11,6 +11,7 @@ import usuarios_view
 import lojas_view
 import auditoria_view 
 import relatorios_view
+import quebras_view 
 
 from datetime import date, timedelta
 import pandas as pd
@@ -124,11 +125,17 @@ else:
             st.session_state.pagina_ativa = "📋 Relatórios" # <--- Agora combina com o elif
             st.rerun()
     
-    # Menu de Lançamento (Gerente e Admin)
-    if user['funcao'] in ['gerente', 'admin']:
+    # Menu de Lançamento e Quebras (Acessível a todos conforme solicitado)
+    if user['funcao'] in ['gerente', 'admin', 'proprietario']: # Ajustado para abranger todos
         if st.sidebar.button("📝 Lançamento Diário", use_container_width=True):
-            st.session_state.pagina_ativa = "📝 Lançamento Diário"; st.rerun()
-
+            st.session_state.pagina_ativa = "📝 Lançamento Diário"
+            st.rerun()
+            
+        # NOVO BOTÃO: Quebras de CX
+        if st.sidebar.button("📉 Quebras de CX", use_container_width=True):
+            st.session_state.pagina_ativa = "📉 Quebras de CX"
+            st.rerun()
+            
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Sair", use_container_width=True):
         st.session_state.autenticado = False; st.session_state.user_data = None; st.rerun()
@@ -144,6 +151,9 @@ else:
 
     elif escolha == "📝 Lançamento Diário":
         lancamento_view.renderizar_tela(supabase, user)
+
+    elif escolha == "📉 Quebras de CX":
+        quebras_view.renderizar_tela(supabase, user)
 
     elif escolha == "⚖️ Auditoria / Correção":
         auditoria_view.renderizar_tela(supabase, user)
