@@ -4,3 +4,4 @@ pandas
 streamlit-authenticator
 bcrypt
 streamlit-paste-button
+plotly
