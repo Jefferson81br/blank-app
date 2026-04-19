@@ -67,89 +67,82 @@ def renderizar_tela(supabase, user):
             format="DD/MM/YYYY", 
             key="dt_mov_final_vTitulos_v4"
         )
+        
         ja_existe = str(data_sel) in datas_feitas
         
         if ja_existe:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
+            st.warning("Para correções, solicite ao Financeiro a inativação deste registro na tela de Auditoria.")
         
         st.write("---")
         
-        # --- ENTRADAS ---
-        st.subheader("📥 Entradas")
-        
-        h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
-        h2.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
-        h3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
-        h4.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>ACERTO</div>", unsafe_allow_html=True)
-        
-        sc, cc, ac = linha_entrada("CARTÃO", "car")
-        sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
-        sd, cd, ad = linha_entrada("DINHEIRO", "din")
-        sb, cb, ab = linha_entrada("BOLETO", "bol")
-        si, ci, ai = linha_entrada("IFOOD", "ifo")
-        sp, cp, ap = linha_entrada("PBM", "pbm")
-        sx, cx, ax = linha_entrada("PIX / TRANSF", "pix")
-        sv, cv, av = linha_entrada("VALE COMPRA", "vco")
-        sf, cf, af = linha_entrada("FAPP", "fap")
-        sl, cl, al = linha_entrada("VLINK", "vli")
+        # --- TRAVA DE SEGURANÇA: Só renderiza as entradas se não houver lançamento ---
+        if not ja_existe:
+            st.subheader("📥 Entradas")
+            
+            h1, h2, h3, h4 = st.columns([2, 2, 2, 1.5])
+            h2.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>SISTEMA</div>", unsafe_allow_html=True)
+            h3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+            h4.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>ACERTO</div>", unsafe_allow_html=True)
+            
+            sc, cc, ac = linha_entrada("CARTÃO", "car")
+            sr, cr, ar = linha_entrada("CREDIÁRIO", "cre")
+            sd, cd, ad = linha_entrada("DINHEIRO", "din")
+            sb, cb, ab = linha_entrada("BOLETO", "bol")
+            si, ci, ai = linha_entrada("IFOOD", "ifo")
+            sp, cp, ap = linha_entrada("PBM", "pbm")
+            sx, cx, ax = linha_entrada("PIX / TRANSF", "pix")
+            sv, cv, av = linha_entrada("VALE COMPRA", "vco")
+            sf, cf, af = linha_entrada("FAPP", "fap")
+            sl, cl, al = linha_entrada("VLINK", "vli")
 
-        t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
-        t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
-        t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
+            t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
+            t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
+            t_a_ent = ac+ar+ad+ab+ai+ap+ax+av+af+al
 
-        st.markdown("---")
-        col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
-        col_t1.markdown("**TOTAIS GERAIS:**")
-        col_t2.markdown(f"**R$ {t_s_ent:,.2f}**")
-        col_t3.markdown(f"<span style='color:#00ff00; font-weight:bold; font-size:18px;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
-        cor_final_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
-        col_t4.markdown(f"<div style='text-align:center; color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</div>", unsafe_allow_html=True)
+            st.markdown("---")
+            col_t1, col_t2, col_t3, col_t4 = st.columns([2, 2, 2, 1.5])
+            col_t1.markdown("**TOTAIS GERAIS:**")
+            col_t2.markdown(f"**R$ {t_s_ent:,.2f}**")
+            col_t3.markdown(f"<span style='color:#00ff00; font-weight:bold; font-size:18px;'>R$ {t_c_ent:,.2f}</span>", unsafe_allow_html=True)
+            cor_final_ace = "#ff4b4b" if t_a_ent < 0 else ("#00ff00" if t_a_ent > 0 else "white")
+            col_t4.markdown(f"<div style='text-align:center; color:{cor_final_ace}; font-weight:bold; font-size:18px;'>R$ {t_a_ent:,.2f}</div>", unsafe_allow_html=True)
 
-        st.write("---")
-        
-        # --- SAÍDAS ---
-        st.subheader("📤 Saídas")
-        
-        sh1, sh2, sh3, sh4 = st.columns([2, 2, 2, 1.5])
-        sh3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
+            st.write("---")
+            
+            st.subheader("📤 Saídas")
+            sh1, sh2, sh3, sh4 = st.columns([2, 2, 2, 1.5])
+            sh3.markdown("<div style='text-align:center; color:#bbb; font-size:13px; font-weight:bold;'>CONFERÊNCIA</div>", unsafe_allow_html=True)
 
-        c_des = linha_saida("DESPESA", "des")
-        c_vfu = linha_saida("VALE FUNC.", "vfu")
-        c_dev = linha_saida("DEV. CARTÃO", "dev")
-        c_out = linha_saida("OUTROS", "out")
-        
-        t_c_sai = c_des + c_vfu + c_dev + c_out
+            c_des = linha_saida("DESPESA", "des")
+            c_vfu = linha_saida("VALE FUNC.", "vfu")
+            c_dev = linha_saida("DEV. CARTÃO", "dev")
+            c_out = linha_saida("OUTROS", "out")
+            
+            t_c_sai = c_des + c_vfu + c_dev + c_out
 
-        st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
-                <table style='width:100%; border:none;'>
-                    <tr>
-                        <td style='width:30%'><b>TOTAL SAÍDAS (JUSTIFICADO)</b></td>
-                        <td style='width:25%'>-</td>
-                        <td style='width:25%; color:#00ff00; font-weight:bold; font-size:16px;'>R$ {t_c_sai:,.2f}</td>
-                        <td style='width:20%'></td>
-                    </tr>
-                </table>
-            </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <div style='background-color: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #333; margin-top:10px;'>
+                    <b>TOTAL SAÍDAS (JUSTIFICADO):</b> <span style='color:#00ff00; font-weight:bold; font-size:16px;'>R$ {t_c_sai:,.2f}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
-        divergencia = (t_c_ent + t_c_sai) - t_s_ent
-        cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
-        label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia <= 0.01 else ("FALTA" if divergencia < 0 else "SOBRA")
+            divergencia = round((t_c_ent + t_c_sai) - t_s_ent, 2)
+            cor_div = "#00ff00" if -0.01 <= divergencia <= 0.01 else ("#ff4b4b" if divergencia < 0 else "#33ccff")
+            label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia <= 0.01 else ("FALTA" if divergencia < 0 else "SOBRA")
 
-        st.divider()
+            st.divider()
 
-        st.markdown(f"""
-            <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
-                <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
-                <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
-                <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
-                <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
-                    Status da Auditoria: {label_div} (R$ {divergencia:,.2f})
-                </p>
-            </div>
-            <br>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <div style="background-color:#141414; padding:25px; border-radius:15px; border-left: 8px solid #00ff00; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                    <p style="margin:0; font-size:18px; color:#00ff00; font-weight:bold; letter-spacing: 1px;">CAIXA TOTAL DO DIA (VALOR CONFERIDO)</p>
+                    <h1 style="margin:5px 0; color:white; font-size:52px; font-weight:900;">R$ {t_c_ent:,.2f}</h1>
+                    <hr style="border: 0; border-top: 1px solid #333; margin: 15px 0;">
+                    <p style="margin:0; font-size:22px; color:{cor_div}; font-weight:bold; text-transform: uppercase;">
+                        Status da Auditoria: {label_div} (R$ {divergencia:,.2f})
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -178,13 +171,14 @@ def renderizar_tela(supabase, user):
 
         st.write("---")
         
+        # --- TRAVA DE SEGURANÇA: O formulário de envio só aparece se não houver lançamento ---
         if not ja_existe:
             with st.form("f_final_caixa_vFinal_Titulos_v4", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                    # Cálculos explícitos arredondados para evitar dízimas no banco
+                    # Cálculos recalculados no submit para precisão
                     quebra_calculada = round((t_c_ent + t_c_sai) - t_s_ent, 2)
                     
                     dados = {
@@ -212,9 +206,9 @@ def renderizar_tela(supabase, user):
                     ok, res = db.salvar_fechamento(supabase, dados)
                     if ok:
                         fechamento_id = res.data[0]['id']
-                        urls_registradas = []
                         if imgs:
                             with st.spinner('Enviando...'):
+                                urls_registradas = []
                                 for i, f in enumerate(imgs):
                                     caminho = f"loja_{loja_id}/{data_sel}/p_{i}_{f.name}"
                                     db.fazer_upload_print(supabase, f, caminho)
