@@ -153,13 +153,11 @@ def renderizar_tela(supabase, user):
 
     with coluna_avisos:
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        # Pequeno ajuste de segurança na variável de nome da loja
         nome_loja_display = nome_loja_exibir if 'nome_loja_exibir' in locals() else "Unidade"
         st.info(f"### 📖 {nome_loja_display}")
         
         st.subheader("💬 Histórico de Feedbacks")
         try:
-            # ALTERAÇÃO: Aumentado para .limit(5) para cobrir o acúmulo de final de semana
             fb = supabase.table("fechamentos").select("data_fechamento, replica_gestor") \
                 .eq("loja_id", loja_id) \
                 .neq("replica_gestor", "None") \
@@ -169,7 +167,6 @@ def renderizar_tela(supabase, user):
                 
             if fb.data:
                 for f in fb.data:
-                    # Mantendo a formatação brasileira da data que corrigimos
                     dt_ref = date.fromisoformat(f['data_fechamento']).strftime('%d/%m/%Y')
                     with st.container(border=True):
                         st.caption(f"Ref. {dt_ref}")
@@ -178,6 +175,7 @@ def renderizar_tela(supabase, user):
                 st.write("*Nenhum feedback recente.*")
         except Exception as e:
             st.error(f"Erro ao carregar feedbacks: {e}")
+
         st.write("---")
         
         if not ja_existe:
@@ -186,25 +184,29 @@ def renderizar_tela(supabase, user):
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                    # Calculamos a quebra exatamente como exibimos no card visual
-                    # (Total Conferido Entradas + Total Saídas) - Total Sistema
-                    t_c_ent = cc+cr+cd+cb+ci+cp+cx+cv+cf+cl
-                    t_c_sai = c_des + c_vfu + c_dev + c_out
-                    t_s_ent = sc+sr+sd+sb+si+sp+sx+sv+sf+sl
-    
-                    quebra_calculada = (t_c_ent + t_c_sai) - t_s_ent
-        
+                    # Cálculos explícitos arredondados para evitar dízimas no banco
+                    quebra_calculada = round((t_c_ent + t_c_sai) - t_s_ent, 2)
                     
                     dados = {
-                        "loja_id": loja_id, "usuario_id": user['id'], "data_fechamento": str(data_sel),
-                        "valor_quebra": quebra_calculada,  # <--- NOVA LINHA AQUI
-                        "sis_cartao": sc, "conf_cartao": cc, "sis_crediario": sr, "conf_crediario": cr,
-                        "sis_dinheiro": sd, "conf_dinheiro": cd, "sis_boleto": sb, "conf_boleto": cb,
-                        "sis_ifood": si, "conf_ifood": ci, "sis_pbm": sp, "conf_pbm": cp, 
-                        "sis_pix": sx, "conf_pix": cx, "sis_vale_compra": sv, "conf_vale_compra": cv, 
-                        "sis_fapp": sf, "conf_fapp": cf, "sis_vlink": sl, "conf_vlink": cl, 
-                        "conf_despesa": c_des, "conf_vale_func": c_vfu, "conf_dev_cartao": c_dev, 
-                        "conf_outros": c_out, "observacoes": obs, "status_auditoria": "Pendente"
+                        "loja_id": loja_id, 
+                        "usuario_id": user['id'], 
+                        "data_fechamento": str(data_sel),
+                        "valor_quebra": quebra_calculada,
+                        "sis_cartao": sc, "conf_cartao": cc, 
+                        "sis_crediario": sr, "conf_crediario": cr,
+                        "sis_dinheiro": sd, "conf_dinheiro": cd, 
+                        "sis_boleto": sb, "conf_boleto": cb,
+                        "sis_ifood": si, "conf_ifood": ci, 
+                        "sis_pbm": sp, "conf_pbm": cp, 
+                        "sis_pix": sx, "conf_pix": cx, 
+                        "sis_vale_compra": sv, "conf_vale_compra": cv, 
+                        "sis_fapp": sf, "conf_fapp": cf, 
+                        "sis_vlink": sl, "conf_vlink": cl, 
+                        "conf_despesa": c_des, "conf_vale_func": c_vfu, 
+                        "conf_dev_cartao": c_dev, "conf_outros": c_out, 
+                        "observacoes": obs, 
+                        "status_auditoria": "Pendente",
+                        "ativo": True
                     }
                     
                     ok, res = db.salvar_fechamento(supabase, dados)
