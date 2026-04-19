@@ -49,15 +49,16 @@ def renderizar_tela(supabase, user):
             </div>
         """, unsafe_allow_html=True)
         
-        data_limite = date.today() - timedelta(days=7)
-        res_check = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_limite), str(date.today()))
-        datas_feitas = [d['data_fechamento'] for d in res_check.data] if res_check.data else []
+        # --- BUSCA DE STATUS (Visual de 7 dias para orientação) ---
+        data_orientacao = date.today() - timedelta(days=7)
+        res_orientacao = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_orientacao), str(date.today()))
+        datas_orientacao = [d['data_fechamento'] for d in res_orientacao.data] if res_orientacao.data else []
 
         cols_status = st.columns(7)
         for i in range(7):
             dia = date.today() - timedelta(days=i)
             with cols_status[6-i]:
-                status = "🟢" if str(dia) in datas_feitas else "🔴"
+                status = "🟢" if str(dia) in datas_orientacao else "🔴"
                 st.markdown(f"<div style='text-align:center; font-size:11px;'>{dia.strftime('%d/%m')}<br>{status}</div>", unsafe_allow_html=True)
 
         data_sel = st.date_input(
@@ -68,15 +69,17 @@ def renderizar_tela(supabase, user):
             key="dt_mov_final_vTitulos_v4"
         )
         
-        ja_existe = str(data_sel) in datas_feitas
+        # --- VERIFICAÇÃO DE DUPLICIDADE (Ajustada para ser pontual e exata) ---
+        res_duplicidade = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
+        ja_existe = len(res_duplicidade.data) > 0 if res_duplicidade and res_duplicidade.data else False
         
         if ja_existe:
             st.error(f"❌ Já existe um lançamento para o dia {data_sel.strftime('%d/%m/%Y')}.")
-            st.warning("Para correções, solicite ao Financeiro a inativação deste registro na tela de Auditoria.")
+            st.warning("Para correções em datas passadas, solicite a inativação ao Financeiro.")
         
         st.write("---")
         
-        # --- TRAVA DE SEGURANÇA: Só renderiza as entradas se não houver lançamento ---
+        # --- SÓ RENDERIZA O FORMULÁRIO SE NÃO EXISTIR LANÇAMENTO ---
         if not ja_existe:
             st.subheader("📥 Entradas")
             
@@ -171,14 +174,12 @@ def renderizar_tela(supabase, user):
 
         st.write("---")
         
-        # --- TRAVA DE SEGURANÇA: O formulário de envio só aparece se não houver lançamento ---
         if not ja_existe:
             with st.form("f_final_caixa_vFinal_Titulos_v4", clear_on_submit=True):
                 imgs = st.file_uploader("Anexar Comprovantes:", accept_multiple_files=True)
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                    # Cálculos recalculados no submit para precisão
                     quebra_calculada = round((t_c_ent + t_c_sai) - t_s_ent, 2)
                     
                     dados = {
