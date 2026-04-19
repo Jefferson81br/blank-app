@@ -4,6 +4,7 @@ import database_utils as db  # Importa suas funções de banco
 import auth_utils as auth    # Importa sua lógica de senha
 
 # IMPORTAÇÃO DOS MÓDULOS DE TELAS
+import inicio_view 
 import dashboard_view
 import lancamento_view
 import usuarios_view
@@ -52,8 +53,8 @@ supabase = create_client(url, key)
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.user_data = None
-if 'pagina_ativa' not in st.session_state:
-    st.session_state.pagina_ativa = "📊 Dashboard"
+if 'pagina_ativa' not in st.session_state: 
+    st.session_state.pagina_ativa = "🏠 Início"
 
 # --- FLUXO DE ACESSO ---
 if not st.session_state.autenticado:
@@ -96,6 +97,11 @@ else:
                     st.error("Senha atual incorreta.")
 
     st.sidebar.markdown("---")
+
+    # Primeiro botão sempre visível
+    if st.sidebar.button("🏠 Início", use_container_width=True):
+        st.session_state.pagina_ativa = "🏠 Início"
+        st.rerun()
     
     # Botões comuns
     if st.sidebar.button("📊 Dashboard", use_container_width=True):
@@ -130,7 +136,10 @@ else:
     # --- RENDERIZAÇÃO DE TELAS (O MAESTRO) ---
     escolha = st.session_state.pagina_ativa
 
-    if escolha == "📊 Dashboard":
+    if escolha == "🏠 Início":
+        inicio_view.renderizar_tela(supabase, user)
+
+    elif escolha == "📊 Dashboard":
         dashboard_view.renderizar_tela(supabase, user)
 
     elif escolha == "📝 Lançamento Diário":
