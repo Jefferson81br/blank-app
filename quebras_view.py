@@ -89,7 +89,7 @@ def renderizar_tela(supabase, user):
             texttemplate='<b>R$ %{text:.2f}</b>', # Texto em negrito e com R$
             textposition='outside',               # Força o texto para fora da barra
             cliponaxis=False,                     # Impede que o texto seja cortado no topo
-            textfont=dict(size=14, color="white") # Aumenta o tamanho da fonte
+            textfont=dict(size=15, color="white") # Aumenta o tamanho da fonte
         )
 
         # Ajuste do eixo Y para dar espaço ao texto no topo
