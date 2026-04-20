@@ -72,7 +72,10 @@ def renderizar_tela(supabase, user):
         saldo = df_final['valor_quebra'].sum()
         st.metric("Saldo Final do Período", f"R$ {saldo:,.2f}", delta_color="inverse" if saldo < 0 else "normal")
 
-        # Gráfico de Barras (Diário) - VERSÃO FINAL OTIMIZADA
+       # --- ORDENAÇÃO EXPLÍCITA ANTES DO GRÁFICO ---
+        df_final = df_final.sort_values('data_dt')
+
+        # Gráfico de Barras (Diário) - CORRIGIDO CRONOLÓGICO
         st.subheader("📊 Quebra Diária (Sobra/Falta)")
         
         fig_bar = px.bar(
@@ -85,7 +88,7 @@ def renderizar_tela(supabase, user):
             hover_data={'data_dt': False, 'Data_BR': True, 'valor_quebra': ':.2f'}
         )
 
-        # 1. Ajustes de Estilo das Barras e Texto
+        # 1. Ajustes de Estilo
         fig_bar.update_traces(
             texttemplate='<b>%{text:.2f}</b>', 
             textposition='outside',
@@ -93,21 +96,23 @@ def renderizar_tela(supabase, user):
             textfont=dict(size=11, color="white")
         )
 
-        # 2. Configuração do Eixo X para mostrar TODOS os dias e Linhas Verticais
+        # 2. Configuração do Eixo X (Forçando a ordem dos dados)
         fig_bar.update_xaxes(
-            type='category',             # Mudamos para categoria para garantir um "slot" por dia
-            tickmode='array',
+            type='category',
+            categoryorder='array',       # <--- ISSO AQUI É A CHAVE
+            categoryarray=df_final['data_dt'], # <--- Segue exatamente a lista ordenada
             tickvals=df_final['data_dt'],
-            ticktext=df_final['Data_BR'].str[:5], # Exibe apenas "DD/MM" para não ocupar muito espaço
-            tickangle=-45,               # Inclina para caber todos
-            showgrid=True,               # Ativa as linhas de grade
+            ticktext=df_final['Data_BR'].str[:5],
+            tickangle=-45,
+            showgrid=True,
             gridwidth=1, 
-            gridcolor='rgba(255, 255, 255, 0.1)', # Linhas verticais sutis
+            gridcolor='rgba(255, 255, 255, 0.1)',
             title="Dia"
         )
 
-        # 3. Ajuste do Eixo Y e Linhas Horizontais
-        margem = df_final['valor_quebra'].abs().max() * 0.25
+        # 3. Ajuste do Eixo Y
+        max_val = df_final['valor_quebra'].abs().max()
+        margem = max_val * 0.25 if max_val > 0 else 1
         fig_bar.update_yaxes(
             range=[df_final['valor_quebra'].min() - margem, df_final['valor_quebra'].max() + margem],
             showgrid=True,
@@ -115,12 +120,10 @@ def renderizar_tela(supabase, user):
             title="Diferença (R$)"
         )
 
-        # 4. Layout Geral
         fig_bar.update_layout(
             margin=dict(t=50, b=50, l=10, r=10),
             showlegend=True,
-            legend_title_text="Legenda:",
-            xaxis_tickformat='%d/%m'
+            legend_title_text="Legenda:"
         )
         
         st.plotly_chart(fig_bar, use_container_width=True)
