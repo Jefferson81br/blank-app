@@ -72,32 +72,60 @@ def renderizar_tela(supabase, user):
         saldo = df_final['valor_quebra'].sum()
         st.metric("Saldo Final do Período", f"R$ {saldo:,.2f}", delta_color="inverse" if saldo < 0 else "normal")
 
-        # Gráfico de Barras (Diário) - MELHORADO
+        # Gráfico de Barras (Diário) - VERSÃO FINAL OTIMIZADA
         st.subheader("📊 Quebra Diária (Sobra/Falta)")
+        
         fig_bar = px.bar(
             df_final, 
             x='data_dt', 
             y='valor_quebra',
             color='Cor',
             color_discrete_map={'Sobra': '#00ff00', 'Falta': '#ff4b4b'},
-            text='valor_quebra', # Mudamos para usar a coluna diretamente
+            text='valor_quebra',
             hover_data={'data_dt': False, 'Data_BR': True, 'valor_quebra': ':.2f'}
         )
 
-        # Ajustes de estilo do texto nas barras
+        # 1. Ajustes de Estilo das Barras e Texto
         fig_bar.update_traces(
-            texttemplate='<b>R$ %{text:.2f}</b>', # Texto em negrito e com R$
-            textposition='outside',               # Força o texto para fora da barra
-            cliponaxis=False,                     # Impede que o texto seja cortado no topo
-            textfont=dict(size=15, color="white") # Aumenta o tamanho da fonte
+            texttemplate='<b>%{text:.2f}</b>', 
+            textposition='outside',
+            cliponaxis=False,
+            textfont=dict(size=11, color="white")
         )
 
-        # Ajuste do eixo Y para dar espaço ao texto no topo
-        margem = df_final['valor_quebra'].abs().max() * 0.2
-        fig_bar.update_yaxes(range=[df_final['valor_quebra'].min() - margem, df_final['valor_quebra'].max() + margem])
+        # 2. Configuração do Eixo X para mostrar TODOS os dias e Linhas Verticais
+        fig_bar.update_xaxes(
+            type='category',             # Mudamos para categoria para garantir um "slot" por dia
+            tickmode='array',
+            tickvals=df_final['data_dt'],
+            ticktext=df_final['Data_BR'].str[:5], # Exibe apenas "DD/MM" para não ocupar muito espaço
+            tickangle=-45,               # Inclina para caber todos
+            showgrid=True,               # Ativa as linhas de grade
+            gridwidth=1, 
+            gridcolor='rgba(255, 255, 255, 0.1)', # Linhas verticais sutis
+            title="Dia"
+        )
+
+        # 3. Ajuste do Eixo Y e Linhas Horizontais
+        margem = df_final['valor_quebra'].abs().max() * 0.25
+        fig_bar.update_yaxes(
+            range=[df_final['valor_quebra'].min() - margem, df_final['valor_quebra'].max() + margem],
+            showgrid=True,
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            title="Diferença (R$)"
+        )
+
+        # 4. Layout Geral
+        fig_bar.update_layout(
+            margin=dict(t=50, b=50, l=10, r=10),
+            showlegend=True,
+            legend_title_text="Legenda:",
+            xaxis_tickformat='%d/%m'
+        )
         
-        fig_bar.update_xaxes(type='date', tickformat="%d/%m")
         st.plotly_chart(fig_bar, use_container_width=True)
+
+        
         # Gráfico de Linha (Acumulado)
         st.subheader("📉 Saldo Acumulado (Evolução)")
         fig_line = px.line(
