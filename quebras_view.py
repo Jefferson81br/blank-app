@@ -72,20 +72,32 @@ def renderizar_tela(supabase, user):
         saldo = df_final['valor_quebra'].sum()
         st.metric("Saldo Final do Período", f"R$ {saldo:,.2f}", delta_color="inverse" if saldo < 0 else "normal")
 
-        # Gráfico de Barras (Diário)
+        # Gráfico de Barras (Diário) - MELHORADO
         st.subheader("📊 Quebra Diária (Sobra/Falta)")
         fig_bar = px.bar(
             df_final, 
-            x='data_dt', # Usamos a data real para o eixo X (ordem correta)
+            x='data_dt', 
             y='valor_quebra',
             color='Cor',
             color_discrete_map={'Sobra': '#00ff00', 'Falta': '#ff4b4b'},
-            text_auto='.2f',
+            text='valor_quebra', # Mudamos para usar a coluna diretamente
             hover_data={'data_dt': False, 'Data_BR': True, 'valor_quebra': ':.2f'}
         )
+
+        # Ajustes de estilo do texto nas barras
+        fig_bar.update_traces(
+            texttemplate='<b>R$ %{text:.2f}</b>', # Texto em negrito e com R$
+            textposition='outside',               # Força o texto para fora da barra
+            cliponaxis=False,                     # Impede que o texto seja cortado no topo
+            textfont=dict(size=14, color="white") # Aumenta o tamanho da fonte
+        )
+
+        # Ajuste do eixo Y para dar espaço ao texto no topo
+        margem = df_final['valor_quebra'].abs().max() * 0.2
+        fig_bar.update_yaxes(range=[df_final['valor_quebra'].min() - margem, df_final['valor_quebra'].max() + margem])
+        
         fig_bar.update_xaxes(type='date', tickformat="%d/%m")
         st.plotly_chart(fig_bar, use_container_width=True)
-
         # Gráfico de Linha (Acumulado)
         st.subheader("📉 Saldo Acumulado (Evolução)")
         fig_line = px.line(
