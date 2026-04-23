@@ -12,6 +12,7 @@ import lojas_view
 import auditoria_view 
 import relatorios_view
 import quebras_view 
+import ajuste_view
 
 from datetime import date, timedelta
 import pandas as pd
@@ -121,6 +122,11 @@ else:
     if user['funcao'] in ['admin', 'proprietario']:
         if st.sidebar.button("⚖️ Auditoria / Correção", use_container_width=True):
             st.session_state.pagina_ativa = "⚖️ Auditoria / Correção"; st.rerun()
+
+        if st.sidebar.button("⚙️ Ajuste", use_container_width=True):
+            st.session_state.pagina_ativa = "⚙️ Ajuste"
+            st.rerun()
+            
         if st.sidebar.button("📋 Relatórios", use_container_width=True):
             st.session_state.pagina_ativa = "📋 Relatórios" # <--- Agora combina com o elif
             st.rerun()
@@ -157,6 +163,9 @@ else:
 
     elif escolha == "⚖️ Auditoria / Correção":
         auditoria_view.renderizar_tela(supabase, user)
+
+    elif st.session_state.pagina_ativa == "⚙️ Ajuste":
+        ajuste_view.renderizar_tela(supabase, user)
 
     elif escolha == "📋 Relatórios":
         relatorios_view.renderizar_tela(supabase, user)
