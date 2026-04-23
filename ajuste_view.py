@@ -4,7 +4,7 @@ from datetime import date
 
 def renderizar_tela(supabase, user):
     st.title("⚙️ Ajuste de Lançamentos")
-    st.markdown("Esta tela permite corrigir valores específicos de um fechamento já realizado.")
+    st.markdown("Esta tela permite corrigir valores específicos de um fechamento já realizado e recalcula o saldo automaticamente.")
 
     # --- 1. SELEÇÃO DE LOJA E DATA ---
     with st.container(border=True):
@@ -14,11 +14,11 @@ def renderizar_tela(supabase, user):
         mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
         
         loja_sel = col1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
-        # Data no formato brasileiro via widget do Streamlit
+        # Data no formato brasileiro
         data_sel = col2.date_input("Selecione a Data:", value=date.today(), format="DD/MM/YYYY")
 
     # --- 2. MAPEAMENTO DE CAMPOS DO BANCO ---
-    # Mapeamos o nome amigável para a coluna real na tabela 'fechamentos'
+    # Ajustado para refletir os nomes de colunas padrão do seu banco
     opcoes_ajuste = {
         "Cartão (Sistema)": "sistema_cartao",
         "Cartão (Conferência)": "conf_cartao",
@@ -51,34 +51,66 @@ def renderizar_tela(supabase, user):
         novo_valor = st.number_input("Informe o novo valor correto (R$):", min_value=0.0, format="%.2f")
         motivo = st.text_area("Motivo do Ajuste:", placeholder="Ex: Erro de digitação no lançamento original...")
         
-        submit = st.form_submit_button("Atualizar Valor", use_container_width=True)
+        submit = st.form_submit_button("Atualizar e Recalcular Saldo", use_container_width=True)
 
     if submit:
         loja_id = mapa_lojas[loja_sel]
         coluna_banco = opcoes_ajuste[item_selecionado]
         
-        # Primeiro, buscamos se o registro existe para essa data/loja (Apenas Ativos)
+        # 1. Busca o registro original
         res_busca = db.buscar_fechamento_por_data(supabase, loja_id, str(data_sel), str(data_sel))
         
         if res_busca and res_busca.data:
-            registro_id = res_busca.data[0]['id']
+            reg = res_busca.data[0]
+            registro_id = reg['id']
             
-            # Preparamos os dados para atualização
-            # Além do valor, atualizamos quem fez o ajuste e o status
+            # 2. Simula o novo estado do registro para recalcular a quebra
+            reg_simulado = reg.copy()
+            reg_simulado[coluna_banco] = novo_valor
+
+            # Cálculo de Entradas (Conferência)
+            t_c_ent = (
+                reg_simulado.get('conf_cartao', 0) + reg_simulado.get('conf_crediario', 0) + 
+                reg_simulado.get('conf_dinheiro', 0) + reg_simulado.get('conf_boleto', 0) + 
+                reg_simulado.get('conf_ifood', 0) + reg_simulado.get('conf_pbm', 0) + 
+                reg_simulado.get('conf_pix', 0) + reg_simulado.get('conf_vale', 0) + 
+                reg_simulado.get('conf_fapp', 0) + reg_simulado.get('conf_vlink', 0)
+            )
+
+            # Cálculo de Saídas/Justificativas
+            t_c_sai = (
+                reg_simulado.get('conf_despesa', 0) + reg_simulado.get('vale_funcionario', 0) + 
+                reg_simulado.get('dev_cartao', 0)
+            )
+
+            # Cálculo do Sistema (Vendas Brutas)
+            t_s_ent = (
+                reg_simulado.get('sistema_cartao', 0) + reg_simulado.get('sistema_crediario', 0) + 
+                reg_simulado.get('sistema_dinheiro', 0) + reg_simulado.get('sistema_boleto', 0) + 
+                reg_simulado.get('sistema_ifood', 0) + reg_simulado.get('sistema_pbm', 0) + 
+                reg_simulado.get('sistema_pix', 0) + reg_simulado.get('sistema_vale', 0) + 
+                reg_simulado.get('sistema_fapp', 0) + reg_simulado.get('sistema_vlink', 0)
+            )
+
+            # Recálculo Final: (Dinheiro em mãos + Despesas pagas) - O que o sistema diz que vendeu
+            nova_quebra = round((t_c_ent + t_c_sai) - t_s_ent, 2)
+
+            # 3. Prepara o pacote de atualização
             dados_update = {
                 coluna_banco: novo_valor,
+                "valor_quebra": nova_quebra,
                 "auditado_por": f"Ajuste por {user['nome']}",
-                "replica_gestor": f"Ajuste Manual no campo {item_selecionado}: {motivo}",
+                "replica_gestor": f"Ajuste Manual: {item_selecionado} alterado. Motivo: {motivo}",
                 "status_auditoria": "Ajustado Manualmente"
             }
             
+            # 4. Envia ao banco
             sucesso = db.atualizar_auditoria(supabase, registro_id, dados_update)
             
             if sucesso:
-                st.success(f"✅ {item_selecionado} atualizado para R$ {novo_valor:,.2f} com sucesso!")
-                # Forçamos a limpeza do cache para refletir nos relatórios
+                st.success(f"✅ Sucesso! {item_selecionado} atualizado. Novo Saldo de Quebra: R$ {nova_quebra:,.2f}")
                 st.cache_data.clear()
             else:
-                st.error("Erro ao tentar atualizar o banco de dados.")
+                st.error("Erro técnico ao atualizar o banco de dados.")
         else:
-            st.warning("⚠️ Nenhum lançamento ativo encontrado para esta loja nesta data. O gerente precisa realizar o lançamento primeiro.")
+            st.warning("⚠️ Nenhum lançamento ativo encontrado para esta data. Não há o que ajustar.")
