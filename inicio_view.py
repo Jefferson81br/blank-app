@@ -9,16 +9,29 @@ def renderizar_tela(supabase, user):
         </div>
     """, unsafe_allow_html=True)
 
-    # --- NOVO: CHANGE LOG DA VERSÃO 1.3 ---
+    # --- NOVO: CHANGE LOG DA VERSÃO 1.3 COM LEGENDA VISUAL ---
     with st.expander("🚀 NOVIDADES DA VERSÃO 1.3", expanded=True):
         st.markdown("""
             <div style="padding: 10px; border-radius: 5px;">
                 <h4 style="color: #00ff00; margin-top:0;">⚖️ Tela de Auditoria: Monitoramento Duplo</h4>
-                <p>Os botões de data agora possuem 2 indicadores visuais:</p>
-                <ul>
-                    <li><b>1º Check (Status):</b> Verde se já foi auditado, Laranja se está pendente.</li>
-                    <li><b>2º Check (Documentos):</b> Fica <b>verde</b> apenas se os 3 comprovantes (Sistema, Depósito e Despesas) estiverem presentes e conferidos.</li>
-                </ul>
+                <p>Agora, os botões de data contam com um sistema de <b>Indicadores Duplos</b> para facilitar a identificação de pendências:</p>
+                
+                <div style="background-color: #262626; padding: 15px; border-radius: 10px; border: 1px solid #333; margin: 10px 0;">
+                    <p style="margin-bottom: 8px;"><b>📍 1º Marcador (Status Global):</b></p>
+                    <ul style="margin-top:0;">
+                        <li>🟡 <b>Pendente:</b> Lançamento ainda não auditado.</li>
+                        <li>✅ <b>Auditado:</b> Conferência financeira finalizada.</li>
+                    </ul>
+                    <p style="margin-bottom: 8px;"><b>📍 2º Marcador (Integridade Documental):</b></p>
+                    <ul style="margin-top:0;">
+                        <li>✅ <b>Completo:</b> Todos os 3 comprovantes (Sistema, Depósito e Despesas) conferidos.</li>
+                        <li>🟡 <b>Pendência:</b> Falta o check em pelo menos um dos comprovantes obrigatórios.</li>
+                    </ul>
+                    <p style="margin-top: 10px; font-size: 14px; color: #aaa;">
+                        <i>Exemplo: <b>✅🟡</b> significa que o dia foi auditado, mas ainda possui pendência de documentação.</i>
+                    </p>
+                </div>
+
                 <hr style="border: 0.5px solid #333;">
                 <h4 style="color: #00ff00;">➕ Autonomia do Auditor</h4>
                 <p>O Auditor agora pode <b>incluir anexos extras</b> (esquecidos pelo gerente) diretamente na tela de auditoria, sem precisar inativar o lançamento.</p>
@@ -70,14 +83,14 @@ def renderizar_tela(supabase, user):
 
     st.divider()
 
-    # Rodapé com Destaque para o Botão de Saída
+    # Rodapé
     c1, c2 = st.columns([4, 1])
     with c1:
         st.caption("Versão do Sistema: 1.3.0 | Suporte Técnico: Jefferson")
     with c2:
         st.info("🚪 **Sair:** Botão no menu lateral.")
 
-    # Alerta de Segurança Crítico para todos
+    # Alerta de Segurança
     st.warning("""
         **Lembrete de Segurança:** Nunca compartilhe sua senha. Todos os lançamentos e auditorias ficam registrados com o nome do usuário responsável.
     """)
