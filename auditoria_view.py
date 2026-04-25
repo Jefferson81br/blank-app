@@ -27,7 +27,6 @@ def renderizar_tela(supabase, user):
             .execute()
 
         if res_datas.data:
-            # Organiza as datas e status da loja selecionada
             mapa_status = {d['data_fechamento']: d['status_auditoria'] for d in res_datas.data}
             datas_disponiveis = sorted(list(mapa_status.keys()), reverse=True)
 
@@ -60,17 +59,14 @@ def renderizar_tela(supabase, user):
         format="DD/MM/YYYY"
     )
     
-    # Busca o fechamento específico para exibir os detalhes abaixo
     res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
 
     if res and res.data:
         d = res.data[0]
-        # ... (O restante do código de exibição das tabelas de ENTRADAS e SAÍDAS permanece idêntico)
         col_dados, col_auditoria = st.columns([2.2, 2])
         
         with col_dados:
             st.subheader("📋 Conferência de Valores")
-            # --- (Mantenha aqui seu código das tabelas de entradas, acertos e resumo) ---
             entradas = [
                 {"Descrição": "CARTÃO", "Sistema": d['sis_cartao'], "Conferência": d['conf_cartao']},
                 {"Descrição": "CREDIÁRIO", "Sistema": d['sis_crediario'], "Conferência": d['conf_crediario']},
@@ -135,12 +131,43 @@ def renderizar_tela(supabase, user):
             with st.container(border=True):
                 st.markdown("**📝 Observações do Gerente:**")
                 st.info(d['observacoes'] if d['observacoes'] else "Nenhuma observação.")
-                st.markdown("**🖼️ Anexos:**")
+                
+                st.markdown("**🖼️ Anexos Atuais:**")
                 if d.get('urls_prints'):
                     cols_img = st.columns(2)
                     for idx, url in enumerate(d['urls_prints']):
                         with cols_img[idx % 2]: st.image(url, use_container_width=True)
                 else: st.warning("Sem comprovantes.")
+
+                # --- NOVO BLOCO: ADICIONAR ANEXOS EXTRAS ---
+                st.markdown("---")
+                with st.expander("➕ Adicionar Comprovantes Esquecidos"):
+                    novos_arquivos = st.file_uploader("Selecione os arquivos extras:", accept_multiple_files=True, key="anexos_extras")
+                    if st.button("Subir e Salvar Anexos", use_container_width=True):
+                        if novos_arquivos:
+                            with st.spinner('Fazendo upload...'):
+                                urls_atuais = d.get('urls_prints', [])
+                                if urls_atuais is None: urls_atuais = []
+                                
+                                novas_urls = []
+                                for i, f in enumerate(novos_arquivos):
+                                    # Gerar caminho único
+                                    ts = int(time.time())
+                                    path = f"loja_{loja_id}/{data_sel}/extra_{ts}_{i}_{f.name}"
+                                    # Upload
+                                    db.fazer_upload_print(supabase, f, path)
+                                    # Obter URL Pública
+                                    url_publica = supabase.storage.from_("comprovantes").get_public_url(path)
+                                    novas_urls.append(url_publica)
+                                
+                                # Atualizar banco com a lista COMBINADA
+                                lista_final = urls_atuais + novas_urls
+                                if db.atualizar_auditoria(supabase, d['id'], {"urls_prints": lista_final}):
+                                    st.success("Anexos adicionados!")
+                                    time.sleep(1)
+                                    st.rerun()
+                        else:
+                            st.warning("Selecione algum arquivo primeiro.")
 
             st.write("---")
             st.subheader("✍️ Parecer do Financeiro")
@@ -165,7 +192,7 @@ def renderizar_tela(supabase, user):
                     if db.atualizar_auditoria(supabase, d['id'], dados_update):
                         st.success("Auditoria salva!"); time.sleep(1); st.rerun()
 
-        # Botão de Inativação (Zona de Perigo)
+        # Botão de Inativação
         st.write("---")
         st.subheader("🛠️ Gestão de Erros")
         with st.expander("⚠️ Inativar este lançamento"):
