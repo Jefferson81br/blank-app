@@ -1,13 +1,32 @@
 import streamlit as st
 
 def renderizar_tela(supabase, user):
-    # Cabeçalho com Estilo
+    # Cabeçalho com Estilo Atualizado para v1.3
     st.markdown(f"""
         <div style="background-color: #1e1e1e; padding: 20px; border-radius: 15px; border-left: 8px solid #00ff00; margin-bottom: 25px;">
-            <h1 style="margin:0; color: white;">🏠 Farma Gestor 1.2</h1>
+            <h1 style="margin:0; color: white;">🏠 Farma Gestor 1.3</h1>
             <p style="font-size: 18px; color: #aaa;">Bem-vindo(a), <b>{user['nome']}</b>! Este é o seu painel central de controle.</p>
         </div>
     """, unsafe_allow_html=True)
+
+    # --- NOVO: CHANGE LOG DA VERSÃO 1.3 ---
+    with st.expander("🚀 NOVIDADES DA VERSÃO 1.3", expanded=True):
+        st.markdown("""
+            <div style="padding: 10px; border-radius: 5px;">
+                <h4 style="color: #00ff00; margin-top:0;">⚖️ Tela de Auditoria: Monitoramento Duplo</h4>
+                <p>Os botões de data agora possuem 2 indicadores visuais:</p>
+                <ul>
+                    <li><b>1º Check (Status):</b> Verde se já foi auditado, Laranja se está pendente.</li>
+                    <li><b>2º Check (Documentos):</b> Fica <b>verde</b> apenas se os 3 comprovantes (Sistema, Depósito e Despesas) estiverem presentes e conferidos.</li>
+                </ul>
+                <hr style="border: 0.5px solid #333;">
+                <h4 style="color: #00ff00;">➕ Autonomia do Auditor</h4>
+                <p>O Auditor agora pode <b>incluir anexos extras</b> (esquecidos pelo gerente) diretamente na tela de auditoria, sem precisar inativar o lançamento.</p>
+                <hr style="border: 0.5px solid #333;">
+                <h4 style="color: #00ff00;">📋 Filtros Avançados em Relatórios</h4>
+                <p>Além de loja e período, agora é possível extrair relatórios filtrando por <b>Status da Auditoria</b> ou <b>Integridade dos Comprovantes</b>.</p>
+            </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("### ℹ️ Guia de Utilização do Sistema")
     st.write("Selecione o seu perfil abaixo para entender as funcionalidades disponíveis:")
@@ -29,7 +48,7 @@ def renderizar_tela(supabase, user):
 
     # --- ABA DE ADMINISTRADORES / GESTORES ---
     if user['funcao'] in ['admin', 'proprietario', 'financeiro']:
-        with st.expander("⚖️ INSTRUÇÕES PARA ADMINISTRADORES E GESTORES", expanded=True):
+        with st.expander("⚖️ INSTRUÇÕES PARA ADMINISTRADORES E GESTORES", expanded=False):
             col1, col2 = st.columns(2)
             
             with col1:
@@ -37,7 +56,7 @@ def renderizar_tela(supabase, user):
                 **Gestão Estrutural:**
                 * **👥 Usuários:** Criar, excluir e resetar senhas da equipe.
                 * **🏢 Lojas:** Gerenciar o cadastro das unidades da rede.
-                * **📋 Relatórios:** Extração de dados consolidados em CSV para contabilidade.
+                * **📋 Relatórios:** Extração de dados consolidados com novos filtros de conferência.
                 * **📉 Quebras:** Visão macro de todas as lojas simultaneamente.
                 """)
             
@@ -45,7 +64,7 @@ def renderizar_tela(supabase, user):
                 st.markdown("""
                 **Controle Financeiro:**
                 * **🔍 Auditoria:** Conferência diária dos lançamentos. Aqui você valida os dados, checa as fotos e envia feedbacks.
-                * **🛠️ Correções:** Em Auditoria, você pode **desativar** um lançamento incorreto para que o gerente possa lançar novamente.
+                * **🛠️ Correções:** Possibilidade de anexar documentos faltantes ou inativar registros incorretos.
                 * **📝 Lançamento:** Você também pode lançar, mas lembre-se de selecionar a unidade correta antes.
                 """)
 
@@ -54,9 +73,9 @@ def renderizar_tela(supabase, user):
     # Rodapé com Destaque para o Botão de Saída
     c1, c2 = st.columns([4, 1])
     with c1:
-        st.caption("Versão do Sistema: 1.2.0 | Suporte Técnico: Jefferson Admin")
+        st.caption("Versão do Sistema: 1.3.0 | Suporte Técnico: Jefferson Admin")
     with c2:
-        st.info("🚪 **Sair:** Utilize o botão ao final do menu lateral para deslogar com segurança.")
+        st.info("🚪 **Sair:** Botão no menu lateral.")
 
     # Alerta de Segurança Crítico para todos
     st.warning("""
