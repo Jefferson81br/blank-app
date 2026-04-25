@@ -15,38 +15,51 @@ def renderizar_tela(supabase, user):
     loja_nome = c1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
     loja_id = mapa_lojas[loja_nome]
 
-    # --- 2. BUSCA DATAS COM LANÇAMENTOS APENAS DESTA LOJA ---
+    # --- 2. BUSCA DATAS COM LANÇAMENTOS (INDICADORES DUPLOS) ---
     data_limite_busca = date.today() - timedelta(days=15)
     
     try:
+        # Selecionamos os campos de checks para a lógica do segundo marcador
         res_datas = supabase.table("fechamentos")\
-            .select("data_fechamento, status_auditoria")\
+            .select("data_fechamento, status_auditoria, check_sistema, check_deposito, check_despesas")\
             .eq("loja_id", loja_id)\
             .gte("data_fechamento", str(data_limite_busca))\
             .eq("ativo", True)\
             .execute()
 
         if res_datas.data:
-            mapa_status = {d['data_fechamento']: d['status_auditoria'] for d in res_datas.data}
-            datas_disponiveis = sorted(list(mapa_status.keys()), reverse=True)
+            # Ordenamos os registros por data (mais recente primeiro)
+            registros = sorted(res_datas.data, key=lambda x: x['data_fechamento'], reverse=True)
 
             st.write(f"📅 **Lançamentos detectados em {loja_nome}:**")
-            qtd_datas = len(datas_disponiveis)
+            qtd_datas = len(registros)
+            # Criamos as colunas (limitando a 10 por linha para não espremer)
             cols_datas = st.columns(qtd_datas if qtd_datas < 10 else 10)
             
-            for i, dt_str in enumerate(datas_disponiveis[:10]):
+            for i, reg in enumerate(registros[:10]):
                 with cols_datas[i]:
+                    dt_str = reg['data_fechamento']
                     dt_obj = date.fromisoformat(dt_str)
                     label = dt_obj.strftime("%d/%m")
-                    emoji = "🟡" if mapa_status[dt_str] == "Pendente" else "✅"
                     
-                    if st.button(f"{emoji}\n{label}", key=f"btn_dt_{dt_str}"):
+                    # Lógica 1: Status Geral da Auditoria
+                    emoji_auditoria = "✅" if reg['status_auditoria'] == "Auditado" else "🟡"
+                    
+                    # Lógica 2: Combinação lógica E (AND) dos Comprovantes
+                    # Só fica verde se os TRÊS estiverem marcados como True
+                    comp_ok = reg.get('check_sistema', False) and \
+                              reg.get('check_deposito', False) and \
+                              reg.get('check_despesas', False)
+                    emoji_comprovantes = "✅" if comp_ok else "🟡"
+                    
+                    # Texto do Botão com 2 Indicadores
+                    if st.button(f"{emoji_auditoria}{emoji_comprovantes}\n{label}", key=f"btn_dt_{dt_str}"):
                         st.session_state.auditoria_date_manual = dt_obj
                         st.rerun()
         else:
             st.caption(f"ℹ️ Nenhuma pendência recente encontrada para {loja_nome}.")
-    except:
-        pass
+    except Exception as e:
+        st.error(f"Erro ao carregar cronograma: {e}")
 
     st.write("---")
 
@@ -59,6 +72,7 @@ def renderizar_tela(supabase, user):
         format="DD/MM/YYYY"
     )
     
+    # Busca o fechamento específico
     res = db.buscar_fechamento_multiplas_lojas(supabase, [loja_id], str(data_sel), str(data_sel))
 
     if res and res.data:
@@ -139,7 +153,6 @@ def renderizar_tela(supabase, user):
                         with cols_img[idx % 2]: st.image(url, use_container_width=True)
                 else: st.warning("Sem comprovantes.")
 
-                # --- NOVO BLOCO: ADICIONAR ANEXOS EXTRAS ---
                 st.markdown("---")
                 with st.expander("➕ Adicionar Comprovantes Esquecidos"):
                     novos_arquivos = st.file_uploader("Selecione os arquivos extras:", accept_multiple_files=True, key="anexos_extras")
@@ -151,16 +164,12 @@ def renderizar_tela(supabase, user):
                                 
                                 novas_urls = []
                                 for i, f in enumerate(novos_arquivos):
-                                    # Gerar caminho único
                                     ts = int(time.time())
                                     path = f"loja_{loja_id}/{data_sel}/extra_{ts}_{i}_{f.name}"
-                                    # Upload
                                     db.fazer_upload_print(supabase, f, path)
-                                    # Obter URL Pública
                                     url_publica = supabase.storage.from_("comprovantes").get_public_url(path)
                                     novas_urls.append(url_publica)
                                 
-                                # Atualizar banco com a lista COMBINADA
                                 lista_final = urls_atuais + novas_urls
                                 if db.atualizar_auditoria(supabase, d['id'], {"urls_prints": lista_final}):
                                     st.success("Anexos adicionados!")
@@ -192,7 +201,6 @@ def renderizar_tela(supabase, user):
                     if db.atualizar_auditoria(supabase, d['id'], dados_update):
                         st.success("Auditoria salva!"); time.sleep(1); st.rerun()
 
-        # Botão de Inativação
         st.write("---")
         st.subheader("🛠️ Gestão de Erros")
         with st.expander("⚠️ Inativar este lançamento"):
