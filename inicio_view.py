@@ -73,7 +73,7 @@ def renderizar_tela(supabase, user):
     # Rodapé com Destaque para o Botão de Saída
     c1, c2 = st.columns([4, 1])
     with c1:
-        st.caption("Versão do Sistema: 1.3.0 | Suporte Técnico: Jefferson Admin")
+        st.caption("Versão do Sistema: 1.3.0 | Suporte Técnico: Jefferson")
     with c2:
         st.info("🚪 **Sair:** Botão no menu lateral.")
 
