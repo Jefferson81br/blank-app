@@ -129,21 +129,20 @@ else:
             st.rerun()
             
         if st.sidebar.button("📋 Relatórios", use_container_width=True):
-            st.session_state.pagina_ativa = "📋 Relatórios" # <--- Agora combina com o elif
+            st.session_state.pagina_ativa = "📋 Relatórios" 
             st.rerun()
     
     # Menu de Lançamento e Quebras (Acessível a todos conforme solicitado)
-    if user['funcao'] in ['gerente', 'admin', 'proprietario']: # Ajustado para abranger todos
+    if user['funcao'] in ['gerente', 'admin', 'proprietario']: 
         if st.sidebar.button("📝 Lançamento Diário", use_container_width=True):
             st.session_state.pagina_ativa = "📝 Lançamento Diário"
             st.rerun()
             
-        # NOVO BOTÃO: Quebras de CX
         if st.sidebar.button("📉 Quebras de CX", use_container_width=True):
             st.session_state.pagina_ativa = "📉 Quebras de CX"
             st.rerun()
 
-    # Verifique o seu ID na tabela 'usuarios' do Supabase
+    # BOTÃO TÉCNICO EXCLUSIVO (Apenas para o seu ID)
     if user['id'] == 'b0439cb9-caa3-40dd-9f78-40ca3c9d80d8':
         if st.sidebar.button("🛠️ Ferramentas", use_container_width=True):
             st.session_state.pagina_ativa = "🛠️ Ferramentas"
@@ -171,7 +170,7 @@ else:
     elif escolha == "⚖️ Auditoria / Correção":
         auditoria_view.renderizar_tela(supabase, user)
 
-    elif st.session_state.pagina_ativa == "⚙️ Ajuste":
+    elif escolha == "⚙️ Ajuste":
         ajuste_view.renderizar_tela(supabase, user)
 
     elif escolha == "📋 Relatórios":
@@ -186,5 +185,5 @@ else:
     elif escolha == "🏢 Consultar Lojas":
         lojas_view.gerenciar_lojas(supabase)
 
-    elif st.session_state.pagina_ativa == "🛠️ Ferramentas":
-    tools_view.renderizar_tela(supabase, user)
+    elif escolha == "🛠️ Ferramentas":
+        tools_view.renderizar_tela(supabase, user)
