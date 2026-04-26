@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
-import calendar
 import database_utils as db
 import plotly.express as px
 
@@ -15,109 +14,111 @@ def renderizar_tela(supabase, user):
 
     if user['funcao'] not in ['admin', 'proprietario', 'financeiro']:
         loja_id_selecionada = user.get('unidade_id')
-        lista_ids_busca = [loja_id_selecionada]
-        st.info(f"Unidade: **{id_para_nome.get(loja_id_selecionada, 'Minha Unidade')}**")
-        modo_visao = "Individual"
+        lojas_para_renderizar = [id_para_nome.get(loja_id_selecionada)]
+        st.info(f"Unidade: **{lojas_para_renderizar[0]}**")
     else:
         with st.container(border=True):
-            col_l, col_m = st.columns([3, 1])
-            loja_nome_sel = col_l.multiselect(
-                "Selecione as Unidades:", 
+            lojas_para_renderizar = st.multiselect(
+                "Selecione as Unidades para Comparação:", 
                 options=list(mapa_lojas.keys()),
                 default=list(mapa_lojas.keys())[0] if mapa_lojas else None
             )
-            lista_ids_busca = [mapa_lojas[n] for n in loja_nome_sel]
-            
-            modo_visao = col_m.radio("Modo de Visão:", ["Comparativo", "Consolidado (Soma)"])
+
+    if not lojas_para_renderizar:
+        st.warning("Selecione pelo menos uma unidade.")
+        return
 
     # --- 2. DEFINIÇÃO DO PERÍODO ---
     hoje = date.today()
     data_inicio = hoje - timedelta(days=30)
     data_fim = hoje
 
-    # --- 3. BUSCA E TRATAMENTO DE DADOS ---
-    res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids_busca, str(data_inicio), str(data_fim))
+    # --- 3. LOOP POR LOJA (GERANDO GRÁFICOS INDIVIDUAIS) ---
+    for nome_loja in lojas_para_renderizar:
+        id_loja = mapa_lojas[nome_loja]
+        
+        st.markdown(f"""
+            <div style="background-color: #1e1e1e; padding: 10px; border-radius: 10px; border-left: 5px solid #00ff00; margin-top: 30px;">
+                <h3 style="margin:0;">🏢 Unidade: {nome_loja}</h3>
+            </div>
+        """, unsafe_allow_html=True)
 
-    if res and res.data:
-        df = pd.DataFrame(res.data)
-        df['data_dt'] = pd.to_datetime(df['data_fechamento'])
-        df['loja_nome'] = df['loja_id'].map(id_para_nome)
-        df = df.sort_values(by='data_dt')
+        # Busca dados específicos desta loja
+        res = db.buscar_fechamento_multiplas_lojas(supabase, [id_loja], str(data_inicio), str(data_fim))
 
-        # Lógica de Consolidado vs Comparativo
-        if modo_visao == "Consolidado (Soma)":
-            # Agrupa por data somando os valores de todas as lojas selecionadas
-            df_plot = df.groupby('data_dt')['valor_quebra'].sum().reset_index()
-            df_plot['loja_nome'] = "TOTAL CONSOLIDADO"
+        if res and res.data:
+            df = pd.DataFrame(res.data)
+            df['data_dt'] = pd.to_datetime(df['data_fechamento'])
+            df = df.sort_values(by='data_dt')
+            df['Data_BR'] = df['data_dt'].dt.strftime('%d/%m/%Y')
+            df['acumulado'] = df['valor_quebra'].cumsum()
+            
+            # --- LÓGICA DE CORES (VERDE/VERMELHO) ---
+            df['cor'] = df['valor_quebra'].apply(lambda x: '#00ff00' if x >= 0 else '#ff4b4b')
+
+            # --- 4. GRÁFICO DE BARRAS DIÁRIO ---
+            fig_bar = px.bar(
+                df, 
+                x='data_dt', 
+                y='valor_quebra',
+                title=f"Diferenças Diárias - {nome_loja}",
+                hover_data={'data_dt': False, 'Data_BR': True, 'valor_quebra': ':.2f'}
+            )
+            
+            fig_bar.update_traces(marker_color=df['cor']) # Aplica as cores individuais
+
+            fig_bar.update_layout(
+                xaxis_title="Dia",
+                yaxis_title="Valor (R$)",
+                margin=dict(t=50, b=20, l=10, r=10),
+                height=350
+            )
+            
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+            # --- 5. GRÁFICO DE LINHA ACUMULADO ---
+            fig_line = px.line(
+                df, 
+                x='data_dt', 
+                y='acumulado',
+                title=f"Evolução do Saldo - {nome_loja}",
+                markers=True,
+                hover_data={'data_dt': False, 'Data_BR': True, 'acumulado': ':.2f'}
+            )
+            
+            fig_line.update_traces(line_color='#00ff00') # Linha principal em verde
+
+            fig_line.update_layout(
+                xaxis_title="Dia",
+                yaxis_title="Acumulado (R$)",
+                margin=dict(t=50, b=20, l=10, r=10),
+                height=300
+            )
+            
+            st.plotly_chart(fig_line, use_container_width=True)
+            
+            # Resumo em métrica
+            total = df['valor_quebra'].sum()
+            st.metric(f"Saldo Final {nome_loja}", f"R$ {total:,.2f}", delta=f"{total:,.2f}")
+            st.divider()
+
         else:
-            # Mantém as lojas separadas para o gráfico comparativo
-            df_plot = df.copy()
+            st.caption(f"ℹ️ Nenhum dado encontrado para {nome_loja} no período.")
 
-        # Cálculo do Acumulado (por loja ou total)
-        if modo_visao == "Consolidado (Soma)":
-            df_plot['acumulado'] = df_plot['valor_quebra'].cumsum()
-        else:
-            df_plot['acumulado'] = df_plot.groupby('loja_nome')['valor_quebra'].cumsum()
-
-        # Formatação de Data para o Hover
-        df_plot['Data_BR'] = df_plot['data_dt'].dt.strftime('%d/%m/%Y')
-
-        # --- 4. GRÁFICO DE BARRAS (DIÁRIO) ---
-        st.subheader("📊 Diferenças Diárias")
-        
-        fig_bar = px.bar(
-            df_plot, 
-            x='data_dt', 
-            y='valor_quebra',
-            color='loja_nome' if modo_visao == "Comparativo" else None,
-            barmode='group', # Coloca as barras uma ao lado da outra
-            color_discrete_sequence=px.colors.qualitative.Bold,
-            hover_data={'data_dt': False, 'Data_BR': True, 'valor_quebra': ':.2f'}
-        )
-
-        # Estilização do Gráfico
-        fig_bar.update_layout(
-            xaxis_title="Dia",
-            yaxis_title="Valor (R$)",
-            legend_title="Unidades",
-            hovermode="x unified"
-        )
-        
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-        # --- 5. GRÁFICO DE LINHA (EVOLUÇÃO ACUMULADA) ---
-        st.subheader("📉 Saldo Acumulado no Período")
-        
-        fig_line = px.line(
-            df_plot, 
-            x='data_dt', 
-            y='acumulado',
-            color='loja_nome' if modo_visao == "Comparativo" else None,
-            markers=True,
-            hover_data={'data_dt': False, 'Data_BR': True, 'acumulado': ':.2f'}
-        )
-
-        fig_line.update_layout(
-            xaxis_title="Dia",
-            yaxis_title="Acumulado (R$)",
-            legend_title="Unidades"
-        )
-        
-        st.plotly_chart(fig_line, use_container_width=True)
-
-        # --- 6. RESUMO DE TOTAIS ---
-        st.write("---")
-        st.markdown("**Resumo Final do Período Selecionado:**")
-        cols = st.columns(len(loja_nome_sel) if modo_visao == "Comparativo" else 1)
-        
-        if modo_visao == "Comparativo":
-            for i, nome in enumerate(loja_nome_sel):
-                total_loja = df[df['loja_nome'] == nome]['valor_quebra'].sum()
-                cor = "green" if total_loja >= 0 else "red"
-                cols[i].metric(nome, f"R$ {total_loja:,.2f}", delta=f"{total_loja:,.2f}", delta_color="normal")
-        else:
-            total_geral = df['valor_quebra'].sum()
-            st.metric("Total de Todas as Unidades", f"R$ {total_geral:,.2f}")
-
-    else:
-        st.info("Nenhum dado encontrado para o período e lojas selecionadas.")
+    # --- 6. OPÇÃO DE CONSOLIDADO (TODOS) ---
+    if len(lojas_para_renderizar) > 1:
+        with st.expander("📊 VER TOTAL CONSOLIDADO (SOMA DE TODAS AS LOJAS)"):
+            all_ids = [mapa_lojas[n] for n in lojas_para_renderizar]
+            res_total = db.buscar_fechamento_multiplas_lojas(supabase, all_ids, str(data_inicio), str(data_fim))
+            
+            if res_total and res_total.data:
+                df_total = pd.DataFrame(res_total.data)
+                df_total = df_total.groupby('data_fechamento')['valor_quebra'].sum().reset_index()
+                df_total['data_dt'] = pd.to_datetime(df_total['data_fechamento'])
+                df_total = df_total.sort_values(by='data_dt')
+                df_total['cor'] = df_total['valor_quebra'].apply(lambda x: '#00ff00' if x >= 0 else '#ff4b4b')
+                
+                fig_total = px.bar(df_total, x='data_dt', y='valor_quebra')
+                fig_total.update_traces(marker_color=df_total['cor'])
+                st.plotly_chart(fig_total, use_container_width=True)
+                st.metric("Total Geral Acumulado", f"R$ {df_total['valor_quebra'].sum():,.2f}")
