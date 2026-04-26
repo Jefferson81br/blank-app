@@ -1,32 +1,52 @@
 import streamlit as st
 import database_utils as db
+import time
 
 def renderizar_tela(supabase, user):
-    # Cabeçalho da Tela
     st.title("🛠️ Ferramentas do Sistema")
-    st.markdown("Área destinada a utilitários de suporte técnico, manutenção de banco de dados e ferramentas de produtividade.")
-
-    # Verificação de segurança (Apenas para o seu perfil técnico)
-    if user['funcao'] not in ['admin', 'proprietario']:
-        st.error("Acesso restrito ao Administrador do Sistema.")
+    
+    # Trava de segurança (Substitua pelo seu ID real)
+    if user['id'] != 'b0439cb9-caa3-40dd-9f78-40ca3c9d80d8':
+        st.error("Acesso restrito ao desenvolvedor principal.")
         st.stop()
 
-    # Espaço reservado para as suas futuras ferramentas
-    st.info("Esta tela está pronta para receber novos módulos e scripts de automação.")
-    
-    # Exemplo de organização por colunas para ferramentas futuras
-    col1, col2 = st.columns(2)
-    
-    with col1:
+    # --- PRIMEIRA LINHA ---
+    row1_col1, row1_col2 = st.columns(2)
+
+    with row1_col1:
         with st.container(border=True):
             st.subheader("🧹 Manutenção")
-            st.write("Espaço para limpeza de cache ou logs antigos.")
-            if st.button("Limpar Cache do App", use_container_width=True):
+            st.write("Limpeza de cache e otimização do Streamlit.")
+            if st.button("Limpar Cache do App", use_container_width=True, key="btn_cache"):
                 st.cache_data.clear()
-                st.success("Cache limpo com sucesso!")
+                st.success("Cache limpo!")
 
-    with col2:
+    with row1_col2:
         with st.container(border=True):
             st.subheader("📂 Exportação")
-            st.write("Backup rápido de tabelas críticas em formato JSON/CSV.")
-            st.button("Gerar Backup de Lojas", use_container_width=True, disabled=True)
+            st.write("Backup de tabelas críticas (Lojas/Usuários).")
+            if st.button("Gerar Backup em CSV", use_container_width=True, key="btn_backup"):
+                # Aqui você chamaria uma função do database_utils
+                st.toast("Função em desenvolvimento...")
+
+    # --- SEGUNDA LINHA ---
+    row2_col1, row2_col2 = st.columns(2)
+
+    with row2_col1:
+        with st.container(border=True):
+            st.subheader("🔍 Logs de Auditoria")
+            st.write("Verificar quem inativou registros recentemente.")
+            if st.button("Visualizar Logs", use_container_width=True, key="btn_logs"):
+                st.toast("Buscando logs...")
+
+    with row2_col2:
+        with st.container(border=True):
+            st.subheader("🧪 Testes / Debug")
+            st.write("Verificar conexão e status do Supabase.")
+            if st.button("Testar Conexão", use_container_width=True, key="btn_test"):
+                with st.spinner("Pingando banco..."):
+                    time.sleep(1)
+                    st.success("Conexão OK!")
+
+    st.divider()
+    st.caption("Modo Desenvolvedor Ativo")
