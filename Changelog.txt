@@ -1,4 +1,48 @@
 # 📋 CHANGELOG: SISTEMA DE FECHAMENTO DE CAIXA
+**Versão:** 1.3
+**Data da última atualização:** 26/04/2026
+**Responsável:** Jefferson (Dev)
+
+
+## 1. 🚀 NOVIDADES DA VERSÃO 1.3 (ATUAL)
+
+### ⚖️ TELA DE AUDITORIA (UX & MONITORAMENTO)
+- **Sistema de Monitoramento Duplo:** Implementação de indicadores visuais duplos nos botões de seleção de data. [cite: 1, 4]
+    - **1º Marcador (Status Global):** Reflete a coluna `status_auditoria` (✅ Auditado | 🟡 Pendente). [cite: 1, 11]
+    - **2º Marcador (Integridade Documental):** Validação lógica automática (Boolean AND). Fica verde (✅) apenas se `check_sistema`, `check_deposito` e `check_despesas` forem True. [cite: 4, 11]
+- **Anexos Extras em Tempo Real:** Adicionada funcionalidade para o auditor realizar upload de comprovantes esquecidos diretamente na visualização, sem necessidade de inativação do registro. [cite: 5, 11]
+- **Legenda Visual:** Inclusão de banner informativo detalhando o significado dos novos ícones de monitoramento. [cite: 1, 13]
+
+### ⚙️ MÓDULO DE AJUSTES ADMINISTRATIVOS
+- **Nova Tela de Ajuste:** Criada interface para correções pontuais em campos de sistema ou conferência. [cite: 7, 13]
+- **Motor de Recálculo Automático:** O sistema agora recalcula o `valor_quebra` instantaneamente após qualquer alteração manual, garantindo a integridade dos saldos financeiros. [cite: 13, 16]
+
+### 📋 TELA DE RELATÓRIOS (FILTROS AVANÇADOS)
+- **Filtros de Auditoria:** Adicionada capacidade de filtrar resultados por status ("Auditado" vs "Pendente"). [cite: 1, 11]
+- **Filtro de Integridade:** Nova opção para isolar lançamentos com documentação completa ou pendente. [cite: 4, 11]
+- **Indicadores na Grade:** Inclusão de coluna visual com ícones de status para conferência rápida em massa. [cite: 1, 13]
+
+---
+
+## 2. 🛡️ ARQUITETURA DE DADOS (DATABASE & BACKEND) - V1.2
+- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). [cite: 1, 2]
+- **Segurança de Duplicidade:** O sistema valida apenas lançamentos ATIVOS, impedindo duplicidade no mesmo dia/loja. [cite: 3]
+- **Novos Campos de Auditoria:** Adicionadas colunas `check_sistema`, `check_deposito` e `check_despesas` na tabela `fechamentos`. [cite: 4]
+- **Geração de URLs de Imagem:** Integração com bucket `comprovantes` do Supabase para exibição dinâmica. [cite: 5]
+
+## 3. 📝 TELA DE LANÇAMENTO DIÁRIO (UX/UI) - V1.2
+- **Feedback de Unidade:** Banner visual no topo para confirmar a loja logada. [cite: 6]
+- **Padronização de Títulos:** Inclusão dos rótulos SISTEMA, CONFERÊNCIA e ACERTO. [cite: 7]
+- **Formatação PT-BR:** Datas exibidas no formato `DD/MM/YYYY`. [cite: 10]
+
+## 4. 🛠️ FUNÇÕES ATUALIZADAS (DATABASE_UTILS.PY)
+- `atualizar_auditoria`: Atualizada para processar recálculos de quebra e novos checkboxes. [cite: 16, 17]
+- `buscar_fechamento_multiplas_lojas`: Otimizada para suportar os novos filtros de status e integridade. [cite: 15]
+
+---
+**Próximos Passos Sugeridos:**
+- Implementar notificações automáticas para gerentes quando um anexo extra for adicionado pelo auditor.
+# 📋 CHANGELOG: SISTEMA DE FECHAMENTO DE CAIXA
 **Versão:** 1.2
 **Data da última atualização:** 16/04/2026
 **Responsável:** Jefferson (Dev)
