@@ -17,134 +17,107 @@ def renderizar_tela(supabase, user):
         loja_id_selecionada = user.get('unidade_id')
         lista_ids_busca = [loja_id_selecionada]
         st.info(f"Unidade: **{id_para_nome.get(loja_id_selecionada, 'Minha Unidade')}**")
+        modo_visao = "Individual"
     else:
         with st.container(border=True):
-            loja_nome_sel = st.multiselect(
+            col_l, col_m = st.columns([3, 1])
+            loja_nome_sel = col_l.multiselect(
                 "Selecione as Unidades:", 
                 options=list(mapa_lojas.keys()),
                 default=list(mapa_lojas.keys())[0] if mapa_lojas else None
             )
             lista_ids_busca = [mapa_lojas[n] for n in loja_nome_sel]
+            
+            modo_visao = col_m.radio("Modo de Visão:", ["Comparativo", "Consolidado (Soma)"])
 
     # --- 2. DEFINIÇÃO DO PERÍODO ---
-    filtro_tempo = st.radio("Filtro:", ["Mensal", "Período Específico"], horizontal=True)
+    hoje = date.today()
+    data_inicio = hoje - timedelta(days=30)
+    data_fim = hoje
 
-    if filtro_tempo == "Mensal":
-        c1, c2 = st.columns(2)
-        mes_sel = c1.selectbox("Mês:", list(range(1, 13)), index=date.today().month - 1)
-        ano_sel = c2.selectbox("Ano:", [2025, 2026], index=1)
-        ultimo_dia = calendar.monthrange(ano_sel, mes_sel)[1]
-        dt_ini = date(ano_sel, mes_sel, 1)
-        dt_fim = date(ano_sel, mes_sel, ultimo_dia)
-    else:
-        c1, c2 = st.columns(2)
-        dt_ini = c1.date_input("Início:", value=date.today() - timedelta(days=30))
-        dt_fim = c2.date_input("Fim:", value=date.today())
-
-    # --- 3. PROCESSAMENTO DOS DADOS (O SEGREDO DA SOMA) ---
-    res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids_busca, str(dt_ini), str(dt_fim))
+    # --- 3. BUSCA E TRATAMENTO DE DADOS ---
+    res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids_busca, str(data_inicio), str(data_fim))
 
     if res and res.data:
-        df_raw = pd.DataFrame(res.data)
-        # Converte para objeto de data puro do Python
-        df_raw['data_dt'] = pd.to_datetime(df_raw['data_fechamento']).dt.date
-        
-        # A. Consolida os valores por dia (soma se houver várias lojas selecionadas)
-        df_diario = df_raw.groupby('data_dt')['valor_quebra'].sum().reset_index()
+        df = pd.DataFrame(res.data)
+        df['data_dt'] = pd.to_datetime(df['data_fechamento'])
+        df['loja_nome'] = df['loja_id'].map(id_para_nome)
+        df = df.sort_values(by='data_dt')
 
-        # B. Cria a linha do tempo completa (Todos os dias do período)
-        datas_full = pd.date_range(start=dt_ini, end=dt_fim).date
-        df_timeline = pd.DataFrame({'data_dt': datas_full})
+        # Lógica de Consolidado vs Comparativo
+        if modo_visao == "Consolidado (Soma)":
+            # Agrupa por data somando os valores de todas as lojas selecionadas
+            df_plot = df.groupby('data_dt')['valor_quebra'].sum().reset_index()
+            df_plot['loja_nome'] = "TOTAL CONSOLIDADO"
+        else:
+            # Mantém as lojas separadas para o gráfico comparativo
+            df_plot = df.copy()
 
-        # C. Merge: Quem não tem registro recebe 0.00
-        df_final = pd.merge(df_timeline, df_diario, on='data_dt', how='left')
-        df_final['valor_quebra'] = df_final['valor_quebra'].fillna(0).astype(float)
+        # Cálculo do Acumulado (por loja ou total)
+        if modo_visao == "Consolidado (Soma)":
+            df_plot['acumulado'] = df_plot['valor_quebra'].cumsum()
+        else:
+            df_plot['acumulado'] = df_plot.groupby('loja_nome')['valor_quebra'].cumsum()
 
-        # D. Ordenação rigorosa antes do Acumulado
-        df_final = df_final.sort_values('data_dt')
-        df_final['acumulado'] = df_final['valor_quebra'].cumsum()
+        # Formatação de Data para o Hover
+        df_plot['Data_BR'] = df_plot['data_dt'].dt.strftime('%d/%m/%Y')
 
-        # E. Formatação para exibição nos gráficos
-        df_final['Data_BR'] = pd.to_datetime(df_final['data_dt']).dt.strftime('%d/%m/%Y')
-        df_final['Cor'] = df_final['valor_quebra'].apply(lambda x: 'Sobra' if x >= 0 else 'Falta')
-
-        # --- 4. EXIBIÇÃO ---
-        saldo = df_final['valor_quebra'].sum()
-        st.metric("Saldo Final do Período", f"R$ {saldo:,.2f}", delta_color="inverse" if saldo < 0 else "normal")
-
-       # --- ORDENAÇÃO EXPLÍCITA ANTES DO GRÁFICO ---
-        df_final = df_final.sort_values('data_dt')
-
-        # Gráfico de Barras (Diário) - CORRIGIDO CRONOLÓGICO
-        st.subheader("📊 Quebra Diária (Sobra/Falta)")
+        # --- 4. GRÁFICO DE BARRAS (DIÁRIO) ---
+        st.subheader("📊 Diferenças Diárias")
         
         fig_bar = px.bar(
-            df_final, 
+            df_plot, 
             x='data_dt', 
             y='valor_quebra',
-            color='Cor',
-            color_discrete_map={'Sobra': '#00ff00', 'Falta': '#ff4b4b'},
-            text='valor_quebra',
+            color='loja_nome' if modo_visao == "Comparativo" else None,
+            barmode='group', # Coloca as barras uma ao lado da outra
+            color_discrete_sequence=px.colors.qualitative.Bold,
             hover_data={'data_dt': False, 'Data_BR': True, 'valor_quebra': ':.2f'}
         )
 
-        # 1. Ajustes de Estilo
-        fig_bar.update_traces(
-            texttemplate='<b>%{text:.2f}</b>', 
-            textposition='outside',
-            cliponaxis=False,
-            textfont=dict(size=11, color="white")
-        )
-
-        # 2. Configuração do Eixo X (Forçando a ordem dos dados)
-        fig_bar.update_xaxes(
-            type='category',
-            categoryorder='array',       # <--- ISSO AQUI É A CHAVE
-            categoryarray=df_final['data_dt'], # <--- Segue exatamente a lista ordenada
-            tickvals=df_final['data_dt'],
-            ticktext=df_final['Data_BR'].str[:5],
-            tickangle=-45,
-            showgrid=True,
-            gridwidth=1, 
-            gridcolor='rgba(255, 255, 255, 0.1)',
-            title="Dia"
-        )
-
-        # 3. Ajuste do Eixo Y
-        max_val = df_final['valor_quebra'].abs().max()
-        margem = max_val * 0.25 if max_val > 0 else 1
-        fig_bar.update_yaxes(
-            range=[df_final['valor_quebra'].min() - margem, df_final['valor_quebra'].max() + margem],
-            showgrid=True,
-            gridcolor='rgba(255, 255, 255, 0.1)',
-            title="Diferença (R$)"
-        )
-
+        # Estilização do Gráfico
         fig_bar.update_layout(
-            margin=dict(t=50, b=50, l=10, r=10),
-            showlegend=True,
-            legend_title_text="Legenda:"
+            xaxis_title="Dia",
+            yaxis_title="Valor (R$)",
+            legend_title="Unidades",
+            hovermode="x unified"
         )
         
         st.plotly_chart(fig_bar, use_container_width=True)
 
+        # --- 5. GRÁFICO DE LINHA (EVOLUÇÃO ACUMULADA) ---
+        st.subheader("📉 Saldo Acumulado no Período")
         
-        # Gráfico de Linha (Acumulado)
-        st.subheader("📉 Saldo Acumulado (Evolução)")
         fig_line = px.line(
-            df_final, 
+            df_plot, 
             x='data_dt', 
             y='acumulado',
+            color='loja_nome' if modo_visao == "Comparativo" else None,
             markers=True,
             hover_data={'data_dt': False, 'Data_BR': True, 'acumulado': ':.2f'}
         )
-        fig_line.update_xaxes(type='date', tickformat="%d/%m")
-        fig_line.add_hline(y=0, line_dash="dash", line_color="white")
+
+        fig_line.update_layout(
+            xaxis_title="Dia",
+            yaxis_title="Acumulado (R$)",
+            legend_title="Unidades"
+        )
+        
         st.plotly_chart(fig_line, use_container_width=True)
 
-        # Tabela Detalhada
-        with st.expander("🔎 Ver tabela de dados"):
-            st.dataframe(df_final[['Data_BR', 'valor_quebra', 'acumulado']], use_container_width=True, hide_index=True)
+        # --- 6. RESUMO DE TOTAIS ---
+        st.write("---")
+        st.markdown("**Resumo Final do Período Selecionado:**")
+        cols = st.columns(len(loja_nome_sel) if modo_visao == "Comparativo" else 1)
+        
+        if modo_visao == "Comparativo":
+            for i, nome in enumerate(loja_nome_sel):
+                total_loja = df[df['loja_nome'] == nome]['valor_quebra'].sum()
+                cor = "green" if total_loja >= 0 else "red"
+                cols[i].metric(nome, f"R$ {total_loja:,.2f}", delta=f"{total_loja:,.2f}", delta_color="normal")
+        else:
+            total_geral = df['valor_quebra'].sum()
+            st.metric("Total de Todas as Unidades", f"R$ {total_geral:,.2f}")
 
     else:
-        st.info("Nenhum lançamento encontrado para este período.")
+        st.info("Nenhum dado encontrado para o período e lojas selecionadas.")
