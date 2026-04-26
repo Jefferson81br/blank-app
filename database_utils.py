@@ -124,3 +124,35 @@ def inativar_registro(supabase, registro_id, auditor_nome, motivo=""):
     except Exception as e:
         st.error(f"Erro ao inativar registro: {e}")
         return False
+        
+def gerar_sql_dump(supabase):
+    """Gera uma string contendo comandos INSERT para backup completo das tabelas."""
+     tabelas = ["lojas", "usuarios", "fechamentos"]
+    sql_dump = "-- Backup Farma Gestor v1.3\n"
+    sql_dump += f"-- Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n"
+    
+    for tabela in tabelas:
+        res = supabase.table(tabela).select("*").execute()
+        if res.data:
+            sql_dump += f"-- Dados da tabela: {tabela}\n"
+            for registro in res.data:
+                colunas = ", ".join(registro.keys())
+                
+                valores_formatados = []
+                for valor in registro.values():
+                    if valor is None:
+                        valores_formatados.append("NULL")
+                    elif isinstance(valor, str):
+                        # Escapa aspas simples para evitar erro no SQL
+                        texto_limpo = valor.replace("'", "''")
+                        valores_formatados.append(f"'{texto_limpo}'")
+                    elif isinstance(valor, bool):
+                        valores_formatados.append(str(valor).upper())
+                    else:
+                        valores_formatados.append(str(valor))
+                
+                valores_str = ", ".join(valores_formatados)
+                sql_dump += f"INSERT INTO {tabela} ({colunas}) VALUES ({valores_str});\n"
+            sql_dump += "\n"
+            
+    return sql_dump
