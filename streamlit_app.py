@@ -63,7 +63,7 @@ if not st.session_state.autenticado:
     v_esq, centro, v_dir = st.columns([1, 1, 1])
     with centro:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.title("💊 Farma Gestor 1.2")
+        st.title("💊 Farma Gestor 1.3")
         with st.container(border=True):
             user_input = st.text_input("Usuário")
             pass_input = st.text_input("Senha", type="password")
