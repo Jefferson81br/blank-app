@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime  # <--- ADICIONADO: Necessário para o backup
 
 def buscar_usuario(supabase, username):
     """Busca um usuário pelo username no banco."""
@@ -31,8 +32,6 @@ def atualizar_senha_usuario(supabase, user_id, novo_hash):
 def buscar_lojas(supabase):
     return supabase.table("lojas").select("*").order("nome").execute()
 
-
-
 def cadastrar_loja(supabase, dados):
     return supabase.table("lojas").insert(dados).execute()
 
@@ -42,11 +41,8 @@ def atualizar_loja(supabase, loja_id, dados):
 def fazer_upload_print(supabase, arquivo, caminho_destino):
     """Envia uma imagem para o Storage e retorna a URL pública."""
     try:
-        # Lê os bytes do arquivo enviado pelo Streamlit
         conteudo = arquivo.getvalue()
-        # Faz o upload
         supabase.storage.from_("comprovantes").upload(caminho_destino, conteudo)
-        # Retorna a URL pública do arquivo
         return supabase.storage.from_("comprovantes").get_public_url(caminho_destino)
     except Exception as e:
         st.error(f"Erro no upload da imagem: {e}")
@@ -55,23 +51,22 @@ def fazer_upload_print(supabase, arquivo, caminho_destino):
 def salvar_fechamento(supabase, dados):
     """Salva os dados de fechamento na tabela e trata erros de duplicidade."""
     try:
-        # Garante que todo novo fechamento nasça como Ativo
         dados["ativo"] = True
         res = supabase.table("fechamentos").insert(dados).execute()
         return True, res
     except Exception as e:
-        # Verifica se o erro é de chave duplicada (código 23505 no PostgreSQL)
         erro_str = str(e)
         if "23505" in erro_str:
             return False, "Este dia já possui um lançamento para esta loja."
         else:
             return False, f"Erro inesperado: {erro_str}"
-def buscar_fechamento_multiplas_lojas(supabase, lista_loja_ids, data_inicio, data_fim):
+
+def buscar_fechamento_multiplas_lojas(supabase, lista_lo_ids, data_inicio, data_fim):
     """Busca lançamentos de várias lojas ao mesmo tempo."""
     try:
         return supabase.table("fechamentos")\
             .select("*")\
-            .in_("loja_id", lista_loja_ids)\
+            .in_("loja_id", lista_lo_ids)\
             .gte("data_fechamento", data_inicio)\
             .lte("data_fechamento", data_fim)\
             .eq("ativo", True)\
@@ -97,21 +92,16 @@ def buscar_fechamento_por_data(supabase, loja_id, data_inicio, data_fim):
         return None
 
 def atualizar_auditoria(supabase, registro_id, dados):
-    """
-    Atualiza os campos de auditoria em um registro de fechamento existente.
-    """
+    """Atualiza campos de auditoria em um registro existente."""
     try:
         res = supabase.table("fechamentos").update(dados).eq("id", registro_id).execute()
-        # Se res.data existe, a atualização foi bem sucedida
         return len(res.data) > 0
     except Exception as e:
         print(f"Erro ao atualizar auditoria: {e}")
         return False
 
 def inativar_registro(supabase, registro_id, auditor_nome, motivo=""):
-    """
-    Realiza o Soft Delete (inativação) do registro para permitir reenvio.
-    """
+    """Realiza o Soft Delete do registro."""
     try:
         dados_anular = {
             "ativo": False,
@@ -124,10 +114,11 @@ def inativar_registro(supabase, registro_id, auditor_nome, motivo=""):
     except Exception as e:
         st.error(f"Erro ao inativar registro: {e}")
         return False
-        
+
 def gerar_sql_dump(supabase):
-    """Gera uma string contendo comandos INSERT para backup completo das tabelas."""
-     tabelas = ["lojas", "usuarios", "fechamentos"]
+    """Gera string de comandos INSERT para backup completo."""
+    # <--- CORRIGIDO: Indentação ajustada abaixo
+    tabelas = ["lojas", "usuarios", "fechamentos"]
     sql_dump = "-- Backup Farma Gestor v1.3\n"
     sql_dump += f"-- Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n"
     
@@ -143,7 +134,6 @@ def gerar_sql_dump(supabase):
                     if valor is None:
                         valores_formatados.append("NULL")
                     elif isinstance(valor, str):
-                        # Escapa aspas simples para evitar erro no SQL
                         texto_limpo = valor.replace("'", "''")
                         valores_formatados.append(f"'{texto_limpo}'")
                     elif isinstance(valor, bool):
