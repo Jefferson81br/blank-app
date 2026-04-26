@@ -15,7 +15,7 @@ def renderizar_tela(supabase, user):
 
     with row1_col1:
         with st.container(border=True):
-            st.subheader("🧹 Manutenção")
+            st.subheader("🧹 Manutenção 1")
             st.write("Limpeza de cache e otimização do Streamlit.")
             if st.button("Limpar Cache do App", use_container_width=True, key="btn_cache"):
                 st.cache_data.clear()
@@ -23,7 +23,7 @@ def renderizar_tela(supabase, user):
 
     with row1_col2:
         with st.container(border=True):
-            st.subheader("📂 Exportação")
+            st.subheader("📂 Exportação 2")
             st.write("Backup de tabelas críticas (Lojas/Usuários).")
             if st.button("Gerar Backup em CSV", use_container_width=True, key="btn_backup"):
                 # Aqui você chamaria uma função do database_utils
@@ -34,14 +34,14 @@ def renderizar_tela(supabase, user):
 
     with row2_col1:
         with st.container(border=True):
-            st.subheader("🔍 Logs de Auditoria")
+            st.subheader("🔍 Logs de Auditoria 3")
             st.write("Verificar quem inativou registros recentemente.")
             if st.button("Visualizar Logs", use_container_width=True, key="btn_logs"):
                 st.toast("Buscando logs...")
 
     with row2_col2:
         with st.container(border=True):
-            st.subheader("🧪 Testes / Debug")
+            st.subheader("🧪 Testes / Debug 4")
             st.write("Verificar conexão e status do Supabase.")
             if st.button("Testar Conexão", use_container_width=True, key="btn_test"):
                 with st.spinner("Pingando banco..."):
