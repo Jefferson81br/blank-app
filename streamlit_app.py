@@ -13,6 +13,7 @@ import auditoria_view
 import relatorios_view
 import quebras_view 
 import ajuste_view
+import tools_view
 
 from datetime import date, timedelta
 import pandas as pd
@@ -141,6 +142,12 @@ else:
         if st.sidebar.button("📉 Quebras de CX", use_container_width=True):
             st.session_state.pagina_ativa = "📉 Quebras de CX"
             st.rerun()
+
+    # Verifique o seu ID na tabela 'usuarios' do Supabase
+    if user['id'] == 'b0439cb9-caa3-40dd-9f78-40ca3c9d80d8':
+        if st.sidebar.button("🛠️ Ferramentas", use_container_width=True):
+            st.session_state.pagina_ativa = "🛠️ Ferramentas"
+            st.rerun()
             
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Sair", use_container_width=True):
@@ -178,3 +185,6 @@ else:
 
     elif escolha == "🏢 Consultar Lojas":
         lojas_view.gerenciar_lojas(supabase)
+
+    elif st.session_state.pagina_ativa == "🛠️ Ferramentas":
+    tools_view.renderizar_tela(supabase, user)
