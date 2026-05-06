@@ -6,7 +6,7 @@ import database_utils as db
 import plotly.express as px
 
 def renderizar_tela(supabase, user):
-    st.title("📉 Quebras de Caixa")
+    st.title("📉 Quebras de Caixa1")
 
     # --- 1. SELEÇÃO DE UNIDADES E PERMISSÕES ---
     lojas_res = db.buscar_lojas(supabase)
