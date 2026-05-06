@@ -29,12 +29,21 @@ def renderizar_tela(supabase, user):
         st.warning("Selecione ao menos uma unidade.")
         return
 
-    # --- 2. DEFINIÇÃO DO PERÍODO (Mês Atual Completo para a Grade) ---
-    hoje = date.today()
-    primeiro_dia = hoje.replace(day=1)
-    ultimo_dia_mes = calendar.monthrange(hoje.year, hoje.month)[1]
-    data_fim_mes = hoje.replace(day=ultimo_dia_mes)
-    
+    # --- 2. NOVO: SELEÇÃO DO MÊS E ANO ---
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        mes_sel = c1.selectbox("Selecione o Mês:", list(range(1, 13)), index=date.today().month - 1)
+        ano_sel = c2.selectbox("Selecione o Ano:", [2025, 2026], index=1)
+        
+        # Cálculo do período baseado na escolha
+        primeiro_dia = date(ano_sel, mes_sel, 1)
+        ultimo_dia_valor = calendar.monthrange(ano_sel, mes_sel)[1]
+        data_fim_mes = date(ano_sel, mes_sel, ultimo_dia_valor)
+        
+        # Para a busca no banco, limitamos até hoje se o mês selecionado for o atual
+        hoje = date.today()
+        data_busca_fim = hoje if (hoje.month == mes_sel and hoje.year == ano_sel) else data_fim_mes
+
     # Criar DataFrame base com TODOS os dias do mês para garantir a estética da grade
     datas_mes = pd.date_range(start=primeiro_dia, end=data_fim_mes)
 
@@ -48,8 +57,8 @@ def renderizar_tela(supabase, user):
             </div>
         """, unsafe_allow_html=True)
 
-        # Busca dados da loja específica
-        res = db.buscar_fechamento_multiplas_lojas(supabase, [id_loja], str(primeiro_dia), str(hoje))
+        # Busca dados da loja específica usando o período selecionado
+        res = db.buscar_fechamento_multiplas_lojas(supabase, [id_loja], str(primeiro_dia), str(data_busca_fim))
 
         # Preparação do DataFrame
         df_base = pd.DataFrame({'data_dt': datas_mes})
@@ -82,7 +91,6 @@ def renderizar_tela(supabase, user):
             cliponaxis=False
         )
 
-        # Estilização idêntica ao arquivo original
         fig_bar.update_xaxes(
             type='date',
             tickformat="%d/%m",
@@ -135,7 +143,6 @@ def renderizar_tela(supabase, user):
         
         st.plotly_chart(fig_line, use_container_width=True)
         
-        # Métrica de Resumo
         total_loja = df_final['valor_quebra'].sum()
         st.metric(f"Saldo Final {nome_loja}", f"R$ {total_loja:,.2f}", delta=f"{total_loja:,.2f}")
         st.divider()
@@ -144,14 +151,13 @@ def renderizar_tela(supabase, user):
     if len(lojas_selecionadas) > 1:
         with st.expander("🌍 VER TOTAL CONSOLIDADO (SOMA DA REDE SELECIONADA)"):
             ids_all = [mapa_lojas[n] for n in lojas_selecionadas]
-            res_all = db.buscar_fechamento_multiplas_lojas(supabase, ids_all, str(primeiro_dia), str(hoje))
+            res_all = db.buscar_fechamento_multiplas_lojas(supabase, ids_all, str(primeiro_dia), str(data_busca_fim))
             
             if res_all and res_all.data:
                 df_all = pd.DataFrame(res_all.data)
                 df_all = df_all.groupby('data_fechamento')['valor_quebra'].sum().reset_index()
                 df_all['data_dt'] = pd.to_datetime(df_all['data_fechamento'])
                 
-                # Merge para grade completa
                 df_total = pd.merge(pd.DataFrame({'data_dt': datas_mes}), df_all, on='data_dt', how='left').fillna(0)
                 df_total['cor'] = df_total['valor_quebra'].apply(lambda x: '#00ff00' if x >= 0 else '#ff4b4b')
 
