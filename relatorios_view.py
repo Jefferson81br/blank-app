@@ -111,22 +111,38 @@ def gerar_pdf(df, colunas, labels, usuario_nome):
     return buffer
 
 def renderizar_tela(supabase, user):
-    st.title("📋 Relatórios Consolidados3")
+    st.title("📋 Relatórios Consolidados4")
     st.markdown("Extraia dados detalhados de fechamentos por período, unidade e status de conferência.")
 
-    # --- 1. BLOCO DE FILTROS ---
+    # --- 1. BLOCO DE FILTROS (ADAPTADO COM TRAVA DE SEGURANÇA PARA GERENTES) ---
     with st.container(border=True):
-        col1, col2, col3 = st.columns([2, 1, 1])
-        
         lojas_res = db.buscar_lojas(supabase)
         mapa_lojas = {l['nome']: l['id'] for l in lojas_res.data} if lojas_res.data else {}
+        id_para_nome = {v: k for k, v in mapa_lojas.items()}
         
-        lojas_sel = col1.multiselect(
-            "Filtrar por Unidades:", 
-            options=list(mapa_lojas.keys()),
-            default=list(mapa_lojas.keys())
-        )
+        # Se for um perfil administrativo ou financeiro, exibe o seletor global de lojas
+        if user['funcao'] in ['admin', 'proprietario', 'financeiro']:
+            col1, col2, col3 = st.columns([2, 1, 1])
+            lojas_sel = col1.multiselect(
+                "Filtrar por Unidades:", 
+                options=list(mapa_lojas.keys()),
+                default=list(mapa_lojas.keys())
+            )
+            lista_ids = [mapa_lojas[n] for n in lojas_sel]
         
+        # Se for gerente, trava o escopo estritamente na unidade vinculada a ele
+        else:
+            col2, col3 = st.columns(2)
+            loja_id_gerente = user.get('unidade_id')
+            nome_loja_gerente = id_para_nome.get(loja_id_gerente, "Minha Unidade")
+            
+            # Alerta visual informativo indicando o escopo travado
+            st.info(f"Gerando relatório para a unidade: **{nome_loja_gerente}**")
+            
+            lista_ids = [loja_id_gerente]
+            lojas_sel = [nome_loja_gerente]
+
+        # Elementos temporais e de integridade comuns
         data_inicio = col2.date_input("Data Início:", value=date.today() - timedelta(days=30), format="DD/MM/YYYY")
         data_fim = col3.date_input("Data Fim:", value=date.today(), format="DD/MM/YYYY")
 
@@ -142,19 +158,15 @@ def renderizar_tela(supabase, user):
             options=["Todos", "Completos (Os 3 OK)", "Pendentes (Algum faltando)"]
         )
 
-    if not lojas_sel:
-        st.warning("Selecione ao menos uma unidade para gerar o relatório.")
+    if not lojas_sel or None in lista_ids:
+        st.warning("Selecione ao menos uma unidade válida para gerar o relatório.")
         st.stop()
-
-    lista_ids = [mapa_lojas[n] for n in lojas_sel]
 
     # --- 2. BUSCA DE DADOS ---
     res = db.buscar_fechamento_multiplas_lojas(supabase, lista_ids, str(data_inicio), str(data_fim))
 
     if res and res.data:
         df = pd.DataFrame(res.data)
-        
-        id_para_nome = {v: k for k, v in mapa_lojas.items()}
         df['loja_nome'] = df['loja_id'].map(id_para_nome)
 
         # --- 3. APLICAÇÃO DOS FILTROS NO DATAFRAME ---
@@ -257,7 +269,6 @@ def renderizar_tela(supabase, user):
             
         with exp_col2:
             labels_pdf = ["Data", "Unidade", "Cartão", "Cred.", "Dinh.", "Boleto", "Ifood", "PBM", "Pix", "VC", "FAPP", "Vlink", "Total", "Desp.", "Quebra", "Audit.", "Comps"]
-            # Passando o user['nome'] extraído da sessão atual do Streamlit para o construtor do PDF
             pdf_data = gerar_pdf(df, colunas_relatorio, labels_pdf, user['nome'])
             st.download_button(
                 label="📄 Baixar Relatório em PDF",
