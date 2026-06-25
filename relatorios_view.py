@@ -73,7 +73,7 @@ def gerar_pdf(df, colunas, labels):
     return buffer
 
 def renderizar_tela(supabase, user):
-    st.title("📋 Relatórios Consolidados")
+    st.title("📋 Relatórios Consolidados2")
     st.markdown("Extraia dados detalhados de fechamentos por período, unidade e status de conferência.")
 
     # --- 1. BLOCO DE FILTROS ---
