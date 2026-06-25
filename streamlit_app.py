@@ -128,12 +128,12 @@ else:
             st.session_state.pagina_ativa = "⚙️ Ajuste"
             st.rerun()
             
+    # Menu de Lançamento e Quebras (Acessível a todos conforme solicitado)
+    if user['funcao'] in ['gerente', 'admin', 'proprietario']: 
         if st.sidebar.button("📋 Relatórios", use_container_width=True):
             st.session_state.pagina_ativa = "📋 Relatórios" 
             st.rerun()
-    
-    # Menu de Lançamento e Quebras (Acessível a todos conforme solicitado)
-    if user['funcao'] in ['gerente', 'admin', 'proprietario']: 
+                
         if st.sidebar.button("📝 Lançamento Diário", use_container_width=True):
             st.session_state.pagina_ativa = "📝 Lançamento Diário"
             st.rerun()
