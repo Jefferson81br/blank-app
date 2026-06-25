@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import database_utils as db
 from io import BytesIO
 
@@ -10,11 +10,47 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-def gerar_pdf(df, colunas, labels):
-    """Gera um PDF formatado em modo paisagem contendo a tabela de dados."""
+def criar_decorador_rodape(usuario_nome):
+    """Cria uma função de callback personalizada para desenhar o rodapé com os dados atuais."""
+    def construir_rodape(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 8)
+        canvas.setFillColor(colors.HexColor('#666666'))
+        
+        # Mapeamento de meses em português para garantir a formatação correta independente do servidor
+        meses = {
+            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 
+            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto", 
+            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+        }
+        
+        agora = datetime.now()
+        data_extenso = f"{agora.day} de {meses[agora.month]} de {agora.year}"
+        hora_formatada = agora.strftime("%H:%M")
+        
+        texto_rodape = f"Relatório gerado por {usuario_nome} em {data_extenso} às {hora_formatada}"
+        
+        # Desenha o rodapé alinhado à esquerda na parte inferior (margem de 20)
+        canvas.drawString(20, 20, texto_rodape)
+        
+        # Adiciona também a numeração de páginas no canto inferior direito
+        texto_pagina = f"Página {doc.page}"
+        canvas.drawRightString(doc.pagesize[0] - 20, 20, texto_pagina)
+        
+        canvas.restoreState()
+    return construir_rodape
+
+def gerar_pdf(df, colunas, labels, usuario_nome):
+    """Gera um PDF formatado em modo paisagem contendo a tabela de dados e rodapé."""
     buffer = BytesIO()
-    # Configura documento em modo paisagem (landscape) para caber todas as colunas
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=20, leftMargin=20, topMargin=20, bottomMargin=20)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=landscape(letter), 
+        rightMargin=20, 
+        leftMargin=20, 
+        topMargin=20, 
+        bottomMargin=35 # Aumentado um pouco para não sobrepor o rodapé
+    )
     story = []
     
     styles = getSampleStyleSheet()
@@ -32,17 +68,15 @@ def gerar_pdf(df, colunas, labels):
     story.append(Spacer(1, 10))
     
     # Preparação dos dados para a tabela do ReportLab
-    dados_tabela = [labels] # Primeira linha é o cabeçalho amigável
+    dados_tabela = [labels]
     
     for _, row in df.iterrows():
         linha = []
         for col in colunas:
             val = row.get(col, "")
-            # Formata valores flutuantes como moeda
             if isinstance(val, (int, float)) and col not in ['data_fechamento', 'loja_nome', 'status_auditoria', 'status_comps']:
                 linha.append(f"R$ {val:,.2f}")
             elif col == 'data_fechamento':
-                # Formata a string de data para DD/MM
                 try:
                     linha.append(pd.to_datetime(val).strftime('%d/%m'))
                 except:
@@ -68,12 +102,16 @@ def gerar_pdf(df, colunas, labels):
     ]))
     
     story.append(t)
-    doc.build(story)
+    
+    # Vincula o gerador de rodapé dinâmico às páginas do documento
+    rodape_callback = criar_decorador_rodape(usuario_nome)
+    doc.build(story, onFirstPage=rodape_callback, onLaterPages=rodape_callback)
+    
     buffer.seek(0)
     return buffer
 
 def renderizar_tela(supabase, user):
-    st.title("📋 Relatórios Consolidados2")
+    st.title("📋 Relatórios Consolidados3")
     st.markdown("Extraia dados detalhados de fechamentos por período, unidade e status de conferência.")
 
     # --- 1. BLOCO DE FILTROS ---
@@ -143,17 +181,14 @@ def renderizar_tela(supabase, user):
             'conf_ifood', 'conf_pbm', 'conf_pix', 'conf_vale_compra', 
             'conf_fapp', 'conf_vlink'
         ]
-        # Garante que campos nulos ou ausentes sejam computados como 0.0
+        
         for col in colunas_soma_total:
             if col not in df.columns:
                 df[col] = 0.0
             else:
                 df[col] = df[col].fillna(0.0)
 
-        # Soma matemática horizontal de todas as modalidades conferidas
         df['total_conferido'] = df[colunas_soma_total].sum(axis=1)
-
-        # Reorganizando colunas conforme solicitado
         df['status_comps'] = df['comps_ok'].apply(lambda x: "✅ OK" if x else "🟡 Pendente")
         
         colunas_relatorio = [
@@ -222,7 +257,8 @@ def renderizar_tela(supabase, user):
             
         with exp_col2:
             labels_pdf = ["Data", "Unidade", "Cartão", "Cred.", "Dinh.", "Boleto", "Ifood", "PBM", "Pix", "VC", "FAPP", "Vlink", "Total", "Desp.", "Quebra", "Audit.", "Comps"]
-            pdf_data = gerar_pdf(df, colunas_relatorio, labels_pdf)
+            # Passando o user['nome'] extraído da sessão atual do Streamlit para o construtor do PDF
+            pdf_data = gerar_pdf(df, colunas_relatorio, labels_pdf, user['nome'])
             st.download_button(
                 label="📄 Baixar Relatório em PDF",
                 data=pdf_data,
