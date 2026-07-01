@@ -1,72 +1,45 @@
-# Farma Gestor 💊
+# Farma Gestor v1.3 💊
 
-O **Farma Gestor** é uma aplicação robusta desenvolvida para automatizar e centralizar o processo de fechamento de caixa de redes de farmácias. O sistema permite que gerentes de diferentes unidades realizem lançamentos financeiros, enviem comprovantes e monitorem o fluxo de caixa de forma integrada.
+O **Farma Gestor** é uma aplicação corporativa de alta performance desenvolvida para automatizar, centralizar e auditar o processo de fechamento de caixa de redes de farmácias. O sistema mitiga fraudes e erros operacionais através de um fluxo contínuo de conciliação financeira entre os lançamentos das filiais e a validação do setor de Auditoria/Financeiro.
 
 ---
 
 ## 🚀 Funcionalidades Principais
 
-* **Fechamento de Caixa Digital:** Registro detalhado de entradas, saídas, sangrias e suprimentos.
-* **Gestão de Comprovantes:** Upload e armazenamento de fotos de recibos e notas fiscais diretamente no Supabase Storage.
-* **Visão Multi-loja:** Interface adaptável para diferentes unidades da rede.
-* **Relatórios em Tempo Real:** Dashboard para acompanhamento das vendas e movimentações diárias.
-* **Segurança de Dados:** Integração segura com banco de dados PostgreSQL (via Supabase).
+* **Fechamento de Caixa Digital Interativo:** Registro detalhado e segmentado de entradas e saídas físicas e digitais por operadoras.
+* **Sistema de Monitoramento Duplo (Conferência Estrita):** Módulo onde a auditoria valida de forma independente os dados inseridos pelo sistema das lojas contra os valores físicos contados.
+* **Gestão Inteligente de Comprovantes:** Upload automatizado e armazenamento estruturado de múltiplos recibos e notas fiscais organizados por filial e data diretamente no *Supabase Storage*, com checagem de integridade visual (checks de Sistema, Depósito e Despesas).
+* **Painel Dinâmico de Quebras de Caixa (Quebras de CX):** Gráficos analíticos diários e acumulados (mensais/anuais) gerados separadamente por unidade para acompanhamento de sobras e faltas financeiras.
+* **Relatórios Avançados & Exportação:** Filtros globais por período, status de auditoria e integridade de documentos, com consolidação automática de totais e exportação nativa de relatórios estruturados em formatos CSV e PDF (modo paisagem com rodapé de paginação e assinatura).
+* **Segurança de Dados Avançada (Enterprise):** Banco de dados totalmente protegido por políticas estritas de **Row-Level Security (RLS)** no nível do PostgreSQL, garantindo o isolamento completo de dados (Gerentes acessam apenas o escopo de suas respectivas filiais, enquanto Administradores e Auditores possuem visão macro da rede).
+* **Histórico de Alterações Auditado (Soft Delete):** Inativação de registros em modo de segurança (coluna `ativo = False`) para permitir reenvios sem exclusão física do histórico de auditoria no banco.
+
+---
 
 ## 🛠️ Tecnologias Utilizadas
 
-* **Linguagem:** [Python](https://www.python.org/)
-* **Interface:** [Streamlit](https://streamlit.io/)
-* **Banco de Dados & Storage:** [Supabase](https://supabase.com/)
-* **Processamento de Dados:** [Pandas](https://pandas.pydata.org/)
+* **Linguagem:** [Python 3.10+](https://www.python.org/)
+* **Interface e Dashboard:** [Streamlit](https://streamlit.io/)
+* **Banco de Dados & Storage Bucket:** [Supabase (PostgreSQL)](https://supabase.com/)
+* **Processamento e Engenharia de Dados:** [Pandas](https://pandas.pydata.org/)
+* **Gráficos e Visualizações:** [Plotly Express](https://plotly.com/python/)
+* **Motor de Geração de PDFs:** [ReportLab](https://www.reportlab.com/)
+* **Criptografia e Autenticação:** [Bcrypt](https://pypi.org/project/bcrypt/)
+
+---
 
 ## 📋 Pré-requisitos
 
-Antes de começar, você precisará ter instalado:
-* Python 3.8 ou superior
+Antes de começar, você precisará ter instalado em seu ambiente de desenvolvimento:
+* Python 3.10 ou superior
 * Git
+* Acesso administrativo a uma instância de projeto no Supabase
+
+---
 
 ## 🔧 Instalação e Uso
 
-1.  **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/seu-usuario/farma-gestor.git](https://github.com/seu-usuario/farma-gestor.git)
-    cd farma-gestor
-    ```
-
-2.  **Crie e ative um ambiente virtual:**
-    ```bash
-    # Windows
-    python -m venv venv
-    .\venv\Scripts\activate
-
-    # Linux/Mac
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Instale as dependências:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Configuração de Variáveis de Ambiente:**
-    Crie um arquivo `.env` na raiz do projeto ou configure os `Secrets` no Streamlit Cloud com as seguintes chaves:
-    ```env
-    SUPABASE_URL="sua_url_do_supabase"
-    SUPABASE_KEY="sua_chave_anon_publica"
-    ```
-
-5.  **Inicie a aplicação:**
-    ```bash
-    streamlit run app.py
-    ```
-
-## 🗄️ Estrutura do Projeto
-
-```text
-├── .streamlit/          # Configurações do Streamlit
-├── assets/             # Imagens e logos
-├── src/                # Scripts de suporte (DB, Auth, Utils)
-├── app.py              # Ponto de entrada da aplicação
-├── requirements.txt    # Dependências do projeto
-└── README.md           # Documentação
+1. **Clone o repositório:**
+   ```bash
+   git clone [https://github.com/seu-usuario/farma-gestor.git](https://github.com/seu-usuario/farma-gestor.git)
+   cd farma-gestor
