@@ -59,18 +59,22 @@ Instale todas as dependências do ecossistema:
 Bash
 pip install -r requirements.txt
 Configuração de Variáveis de Ambiente e Credenciais:
-Crie um diretório .streamlit/ na raiz do projeto (se não existir) e adicione o arquivo secrets.toml para o desenvolvimento local. Caso vá hospedar no Streamlit Cloud, configure estes campos na aba Advanced Settings -> Secrets:
+Crie um diretório .streamlit/ na raiz do projeto (se não existir) e adicione o arquivo secrets.toml para o desenvolvimento local. 
+Caso vá hospedar no Streamlit Cloud, configure estes campos na aba Advanced Settings -> Secrets:
 
 Ini, TOML
 SUPABASE_URL = "[https://seu-id-projeto.supabase.co](https://seu-id-projeto.supabase.co)"
 SUPABASE_KEY = "sua_chave_anon_publica_do_supabase"
-Inicie a aplicação:
 
-Bash
-streamlit run app.py
-🗄️ Estrutura Arquitetural do Projeto
+
+---
+
+## 🗄️ Estrutura Arquitetural do Projeto
+
 O projeto adota uma arquitetura modular baseada em Views independentes e scripts utilitários isolados para manipulação de persistência e autenticação:
 
+```text
+.
 ├── .streamlit/
 │   └── secrets.toml            # Credenciais e tokens de acesso (Ignorado no Git)
 ├── src/
@@ -90,8 +94,10 @@ O projeto adota uma arquitetura modular baseada em Views independentes e scripts
 ├── requirements.txt            # Manifesto de dependências do Python (ReportLab, Plotly, etc.)
 └── README.md                   # Documentação do sistema
 
+```
 
 🔐 Configuração Crítica de Segurança (Banco de Dados)
 Para o correto funcionamento do ecossistema de dados isolado por permissões, garanta que o Row-Level Security (RLS) esteja ativo no seu painel do Supabase para as tabelas usuarios, lojas e fechamentos.
 
-Em caso de recuperação de desastres do banco, utilize o script .sql gerado pelo módulo Ferramentas do desenvolvedor. Se as tabelas forem recriadas, lembre-se de readequar o cast de tipos (auth.uid()::text = id::text) no editor SQL do Supabase para manter as políticas de acesso ativas.
+Em caso de recuperação de desastres do banco, utilize o script .sql gerado pelo módulo Ferramentas do desenvolvedor. 
+Se as tabelas forem recriadas, lembre-se de readequar o cast de tipos (auth.uid()::text = id::text) no editor SQL do Supabase para manter as políticas de acesso ativas.
