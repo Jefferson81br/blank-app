@@ -43,3 +43,55 @@ Antes de começar, você precisará ter instalado em seu ambiente de desenvolvim
    ```bash
    git clone [https://github.com/seu-usuario/farma-gestor.git](https://github.com/seu-usuario/farma-gestor.git)
    cd farma-gestor
+
+   Crie e ative um ambiente virtual (Virtualenv):
+
+Bash
+# Windows
+python -m venv venv
+.\venv\Scripts\activate
+
+# Linux/Mac
+python3 -m venv venv
+source venv/bin/activate
+Instale todas as dependências do ecossistema:
+
+Bash
+pip install -r requirements.txt
+Configuração de Variáveis de Ambiente e Credenciais:
+Crie um diretório .streamlit/ na raiz do projeto (se não existir) e adicione o arquivo secrets.toml para o desenvolvimento local. Caso vá hospedar no Streamlit Cloud, configure estes campos na aba Advanced Settings -> Secrets:
+
+Ini, TOML
+SUPABASE_URL = "[https://seu-id-projeto.supabase.co](https://seu-id-projeto.supabase.co)"
+SUPABASE_KEY = "sua_chave_anon_publica_do_supabase"
+Inicie a aplicação:
+
+Bash
+streamlit run app.py
+🗄️ Estrutura Arquitetural do Projeto
+O projeto adota uma arquitetura modular baseada em Views independentes e scripts utilitários isolados para manipulação de persistência e autenticação:
+
+├── .streamlit/
+│   └── secrets.toml            # Credenciais e tokens de acesso (Ignorado no Git)
+├── src/
+│   ├── app.py                  # Ponto de entrada, fluxo de login e maestro de telas
+│   ├── auth_utils.py           # Engine de criptografia, geração de hashes e verificação de senhas
+│   ├── database_utils.py       # Queries Supabase, inserts, rotinas de auditoria e dump SQL
+│   ├── inicio_view.py          # Dashboard/Home principal pós-login
+│   ├── dashboard_view.py       # Telas de consolidação gerencial
+│   ├── lancamento_view.py      # Módulo operacional de fechamento de caixa diário (Gerentes)
+│   ├── usuarios_view.py        # Painel CRUD de gestão e criação de usuários (Níveis de Acesso)
+│   ├── lojas_view.py           # Gestão cadastral das filiais e unidades da rede
+│   ├── auditoria_view.py       # Painel crítico de conciliação e Soft Delete (Auditores)
+│   ├── relatorios_view.py      # Motor de busca avançada e renderizador de PDFs/CSVs
+│   ├── quebras_view.py         # Módulo visual de análise de saldo de caixa diário e acumulado
+│   ├── ajuste_view.py          # Ajustes pontuais de valores e correções financeiras retroativas
+│   └── tools_view.py           # Ferramentas técnicas exclusivas de Desenvolvimento (Backup SQL)
+├── requirements.txt            # Manifesto de dependências do Python (ReportLab, Plotly, etc.)
+└── README.md                   # Documentação do sistema
+
+
+🔐 Configuração Crítica de Segurança (Banco de Dados)
+Para o correto funcionamento do ecossistema de dados isolado por permissões, garanta que o Row-Level Security (RLS) esteja ativo no seu painel do Supabase para as tabelas usuarios, lojas e fechamentos.
+
+Em caso de recuperação de desastres do banco, utilize o script .sql gerado pelo módulo Ferramentas do desenvolvedor. Se as tabelas forem recriadas, lembre-se de readequar o cast de tipos (auth.uid()::text = id::text) no editor SQL do Supabase para manter as políticas de acesso ativas.
