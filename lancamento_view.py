@@ -23,6 +23,14 @@ def linha_saida(label, key):
     return v_c
 
 def renderizar_tela(supabase, user):
+    st.title("📝 Lançamento Diário")
+
+    # --- TRAVA DE SEGURANÇA: GERENTE SEM LOJA VINCULADA ---
+    if user['funcao'] == 'gerente' and not user.get('unidade_id'):
+        st.error("⚠️ **Ops! Seu cadastro está incompleto.**")
+        st.warning("Sua conta de Gerente ainda não possui uma unidade/loja vinculada. Por favor, entre em contato com o Administrador do sistema para atualizar o seu perfil.")
+        st.stop()
+
     margem_esq, centro, coluna_avisos = st.columns([0.2, 2, 3])
 
     lojas_res = db.buscar_lojas(supabase)
@@ -40,8 +48,6 @@ def renderizar_tela(supabase, user):
         nome_loja_exibir = id_para_nome.get(loja_id, "Unidade")
 
     with centro:
-        st.title("📝 Lançamento Diário")
-        
         st.markdown(f"""
             <div style="background-color: #1e1e1e; padding: 5px 15px; border-radius: 5px; border-left: 5px solid #00ff00; margin-bottom: 20px;">
                 <small style="color: #aaa; font-weight: bold; text-transform: uppercase;">Unidade Logada:</small><br>
@@ -127,7 +133,6 @@ def renderizar_tela(supabase, user):
                 </div>
             """, unsafe_allow_html=True)
 
-            # CÁLCULO DA DIVERGÊNCIA REAL (O que falta/sobra após as justificativas)
             divergencia_final = round((t_c_ent + t_c_sai) - t_s_ent, 2)
             cor_div = "#00ff00" if -0.01 <= divergencia_final <= 0.01 else ("#ff4b4b" if divergencia_final < 0 else "#33ccff")
             label_div = "Caixa Ajustado (OK)" if -0.01 <= divergencia_final <= 0.01 else ("FALTA" if divergencia_final < 0 else "SOBRA")
@@ -170,7 +175,6 @@ def renderizar_tela(supabase, user):
                 obs = st.text_area("Observações do Gerente")
                 
                 if st.form_submit_button("✅ SALVAR FECHAMENTO", use_container_width=True):
-                    # CORREÇÃO APLICADA: O valor quebra deve ser o Saldo Final (Divergência Real)
                     quebra_final_banco = round((t_c_ent + t_c_sai) - t_s_ent, 2)
                     
                     dados = {
