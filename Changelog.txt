@@ -1,79 +1,56 @@
 # 📋 CHANGELOG: SISTEMA DE FECHAMENTO DE CAIXA
-**Versão:** 1.3
-**Data da última atualização:** 26/04/2026
+**Versão:** 1.4
+**Data da última atualização:** 05/07/2026
 **Responsável:** Jefferson (Dev)
 
+---
 
-## 1. 🚀 NOVIDADES DA VERSÃO 1.3 (ATUAL)
+## 1. 🚀 NOVIDADES DA VERSÃO 1.4 (ATUAL)
+
+### 📋 TELA DE RELATÓRIOS (EXPANSÃO & EXPORTAÇÃO AVANÇADA)
+- **Visualização Completa de Dados:** Grade de dados expandida para apresentar todas as colunas de movimentação financeira real: Data, Unidade, Cartão, Crediário, Dinheiro, Boleto, Ifood, PBM, Pix, VC (Vale Compra), FAPP, Vlink, Total, Despesas, Quebra, Auditado e Comprovantes.
+- **Coluna de Totalização Dinâmica:** Implementação do cálculo matemático horizontal em tempo de execução para exibir o valor total conferido do dia.
+- **Módulo de Exportação Nativa em PDF:** Adicionada a funcionalidade para gerar e baixar relatórios estruturados em formato PDF (modo paisagem/landscape), contendo paginação automática e estilização executiva limpa via ReportLab.
+- **Rodapé de Auditoria e Assinatura:** Inclusão automática no rodapé de cada página do PDF da data por extenso, hora da emissão e o nome do usuário responsável por gerar o relatório.
+- **Isolamento de Segurança por Filial (Acesso do Gerente):** Adaptação lógica estruturada que oculta o seletor de lojas para perfis de nível Gerente, travando o escopo de visualização e exportação estritamente nos dados da sua respectiva unidade.
+
+### 📝 TELA DE LANÇAMENTO DIÁRIO & SEGURANÇA DE INTERFACE
+- **Tratamento de Consistência de Perfil (Anti-Tela Preta):** Implementação de uma trava de segurança estrita que verifica no carregamento do sistema se o Gerente possui uma loja associada. Caso o campo esteja nulo (`None`), a renderização é interrompida de forma limpa, substituindo a quebra de tela por um alerta informativo em destaque para o usuário.
+
+---
+
+## 2. 💎 RECAPITULATIVO DA VERSÃO 1.3
 
 ### ⚖️ TELA DE AUDITORIA (UX & MONITORAMENTO)
-- **Sistema de Monitoramento Duplo:** Implementação de indicadores visuais duplos nos botões de seleção de data. [cite: 1, 4]
-    - **1º Marcador (Status Global):** Reflete a coluna `status_auditoria` (✅ Auditado | 🟡 Pendente). [cite: 1, 11]
-    - **2º Marcador (Integridade Documental):** Validação lógica automática (Boolean AND). Fica verde (✅) apenas se `check_sistema`, `check_deposito` e `check_despesas` forem True. [cite: 4, 11]
-- **Anexos Extras em Tempo Real:** Adicionada funcionalidade para o auditor realizar upload de comprovantes esquecidos diretamente na visualização, sem necessidade de inativação do registro. [cite: 5, 11]
-- **Legenda Visual:** Inclusão de banner informativo detalhando o significado dos novos ícones de monitoramento. [cite: 1, 13]
+- **Sistema de Monitoramento Duplo:** Implementação de indicadores visuais duplos nos botões de seleção de data.
+    - *1º Marcador (Status Global):* Reflete o status de auditoria (✅ Auditado | 🟡 Pendente).
+    - *2º Marcador (Integridade Documental):* Validação lógica automática que fica verde (✅) apenas se os comprovantes de Sistema, Depósito e Despesas estiverem marcados como True.
+- **Anexos Extras em Tempo Real:** Adicionada funcionalidade para o auditor realizar upload de comprovantes esquecidos diretamente na visualização, sem necessidade de inativar o registro.
+- **Legenda Visual:** Inclusão de banner informativo detalhando o significado dos novos ícones de monitoramento.
 
 ### ⚙️ MÓDULO DE AJUSTES ADMINISTRATIVOS
-- **Nova Tela de Ajuste:** Criada interface para correções pontuais em campos de sistema ou conferência. [cite: 7, 13]
-- **Motor de Recálculo Automático:** O sistema agora recalcula o `valor_quebra` instantaneamente após qualquer alteração manual, garantindo a integridade dos saldos financeiros. [cite: 13, 16]
-
-### 📋 TELA DE RELATÓRIOS (FILTROS AVANÇADOS)
-- **Filtros de Auditoria:** Adicionada capacidade de filtrar resultados por status ("Auditado" vs "Pendente"). [cite: 1, 11]
-- **Filtro de Integridade:** Nova opção para isolar lançamentos com documentação completa ou pendente. [cite: 4, 11]
-- **Indicadores na Grade:** Inclusão de coluna visual com ícones de status para conferência rápida em massa. [cite: 1, 13]
+- **Nova Tela de Ajuste:** Criada interface para correções pontuais em campos de sistema ou conferência.
+- **Motor de Recálculo Automático:** O sistema recalcula o valor da quebra instantaneamente após qualquer alteração manual, garantindo a integridade dos saldos financeiros.
 
 ---
 
-## 2. 🛡️ ARQUITETURA DE DADOS (DATABASE & BACKEND) - V1.2
-- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). [cite: 1, 2]
-- **Segurança de Duplicidade:** O sistema valida apenas lançamentos ATIVOS, impedindo duplicidade no mesmo dia/loja. [cite: 3]
-- **Novos Campos de Auditoria:** Adicionadas colunas `check_sistema`, `check_deposito` e `check_despesas` na tabela `fechamentos`. [cite: 4]
-- **Geração de URLs de Imagem:** Integração com bucket `comprovantes` do Supabase para exibição dinâmica. [cite: 5]
-
-## 3. 📝 TELA DE LANÇAMENTO DIÁRIO (UX/UI) - V1.2
-- **Feedback de Unidade:** Banner visual no topo para confirmar a loja logada. [cite: 6]
-- **Padronização de Títulos:** Inclusão dos rótulos SISTEMA, CONFERÊNCIA e ACERTO. [cite: 7]
-- **Formatação PT-BR:** Datas exibidas no formato `DD/MM/YYYY`. [cite: 10]
-
-## 4. 🛠️ FUNÇÕES ATUALIZADAS (DATABASE_UTILS.PY)
-- `atualizar_auditoria`: Atualizada para processar recálculos de quebra e novos checkboxes. [cite: 16, 17]
-- `buscar_fechamento_multiplas_lojas`: Otimizada para suportar os novos filtros de status e integridade. [cite: 15]
-
----
-**Próximos Passos Sugeridos:**
-- Implementar notificações automáticas para gerentes quando um anexo extra for adicionado pelo auditor.
-# 📋 CHANGELOG: SISTEMA DE FECHAMENTO DE CAIXA
-**Versão:** 1.2
-**Data da última atualização:** 16/04/2026
-**Responsável:** Jefferson (Dev)
-
----
-
-## 1. 🛡️ ARQUITETURA DE DADOS (DATABASE & BACKEND)
-- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). Registros invalidados agora recebem `False`, preservando o rastro de auditoria.
-- **Segurança de Duplicidade:** O sistema agora valida apenas lançamentos ATIVOS, impedindo duplicidade no mesmo dia/loja, mas permitindo reenvio se o anterior for inativado.
+## 3. 🛡️ ARQUITETURA DE DADOS & BACKEND (V1.2)
+- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). Registros invalidados recebem `False`, preservando o rastro de auditoria.
+- **Segurança de Duplicidade:** O sistema valida apenas lançamentos ativos, impedindo duplicidade no mesmo dia/loja, mas permitindo reenvio se o anterior for inativado.
 - **Novos Campos de Auditoria:** Adicionadas colunas `check_sistema`, `check_deposito` e `check_despesas` (Boolean) na tabela `fechamentos`.
-- **Geração de URLs de Imagem:** Configurada integração com o bucket `comprovantes` do Supabase para exibição dinâmica de anexos via URL pública.
+- **Geração de URLs de Imagem:** Integração com o bucket `comprovantes` do Supabase para exibição dinâmica de anexos via URL pública.
+- **UX de Sucesso:** Implementação de feedbacks dinâmicos (`st.balloons()` e `time.sleep(2)`) após o salvamento de lançamentos.
+- **Histórico de Feedbacks:** Expandido para exibir até 5 feedbacks recentes na tela do gerente.
 
-## 2. 📝 TELA DE LANÇAMENTO DIÁRIO (UX/UI)
-- **Feedback de Unidade:** Banner visual no topo ("🏢 Loja XX") para confirmar a loja logada.
-- **Padronização de Títulos:** Inclusão dos rótulos SISTEMA, CONFERÊNCIA e ACERTO nos campos de entrada.
-- **UX de Sucesso:** Implementação de `st.balloons()` e `time.sleep(2)` após o salvamento para confirmação clara do envio.
-- **Histórico de Feedbacks:** Expandido de 2 para **5 feedbacks recentes**, garantindo que o gerente veja as auditorias acumuladas de fins de semana.
-- **Formatação PT-BR:** Datas agora exibidas no formato `DD/MM/YYYY`.
+---
 
-## 3. ⚖️ TELA DE AUDITORIA (FINANCEIRO)
-- **Checklist Granular:** Inclusão de checkboxes para validação individual de comprovantes (Sistema, Depósito, Despesas).
-- **Gestão de Erros (Botão de Pânico):** Adicionado `st.expander` com botão para **Inativar Lançamento**. Ação automatizada que marca o registro como `ativo = False`, anota o motivo e libera a data para o gerente.
-- **Consistência Visual:** Alinhamento de colunas e cores idêntico à tela de lançamento para facilitar a comparação rápida.
-
-## 4. 🛠️ FUNÇÕES ATUALIZADAS (DATABASE_UTILS.PY)
-- `salvar_fechamento`: Agora inicializa registros com `ativo: True`.
-- `buscar_fechamento_multiplas_lojas`: Filtragem global adicionada: `.eq("ativo", True)`.
-- `buscar_fechamento_por_data`: Filtragem global adicionada: `.eq("ativo", True)`.
-- `inativar_registro`: Nova função para realizar o "Soft Delete" via UPDATE.
-- `atualizar_auditoria`: Atualizada para processar os novos checkboxes de conferência.
+## 🛠️ FUNÇÕES ATUALIZADAS (DATABASE_UTILS.PY)
+- `salvar_fechamento`: Inicializa os registros no banco com o status `ativo: True`.
+- `buscar_fechamento_multiplas_lojas` / `buscar_fechamento_por_data`: Otimizadas com filtragem global `.eq("ativo", True)` e suporte a filtros de status.
+- `inativar_registro`: Nova função responsável por realizar o "Soft Delete" via operação UPDATE.
+- `atualizar_auditoria`: Atualizada para processar os checkboxes de conferência e recálculos automáticos de quebras.
 
 ---
 **Próximos Passos Sugeridos:**
-- Criar visão de "Lixeiro" ou "Histórico de Erros" para consultar lançamentos inativados.
+- Implementar função para exclusão física de anexos individuais enviados por engano diretamente pela interface do Auditor.
+- Criar automação via n8n para disparo diário de resumos de fechamentos e rotinas de backup programado.
