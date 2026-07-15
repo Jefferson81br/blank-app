@@ -16,7 +16,7 @@ def renderizar_tela(supabase, user):
         loja_sel = col1.selectbox("Selecione a Unidade:", options=list(mapa_lojas.keys()))
         data_sel = col2.date_input("Selecione a Data:", value=date.today(), format="DD/MM/YYYY")
 
-    # --- 2. MAPEAMENTO CORRIGIDO (CONFORME LANCAMENTO_VIEW) ---
+    # --- 2. MAPEAMENTO CORRIGIDO E COMPLETO ---
     opcoes_ajuste = {
         "Cartão (Sistema)": "sis_cartao",
         "Cartão (Conferência)": "conf_cartao",
@@ -40,7 +40,8 @@ def renderizar_tela(supabase, user):
         "Vlink (Conferência)": "conf_vlink",
         "Despesas (Total)": "conf_despesa",
         "Vale Funcionário": "conf_vale_func",
-        "Devol. Cartão/Outros": "conf_dev_cartao"
+        "Devol. Cartão": "conf_dev_cartao",
+        "Outros (Saídas)": "conf_outros"
     }
 
     # --- 3. FORMULÁRIO DE AJUSTE ---
@@ -55,42 +56,53 @@ def renderizar_tela(supabase, user):
         loja_id = mapa_lojas[loja_sel]
         coluna_banco = opcoes_ajuste[item_selecionado]
         
-        # 1. Busca o registro atual
+        # 1. Busca apenas registros ATIVOS (Soft Delete check)
         res_busca = db.buscar_fechamento_por_data(supabase, loja_id, str(data_sel), str(data_sel))
         
+        # Filtrando na mão para garantir o .eq("ativo", True)
+        registro_valido = None
         if res_busca and res_busca.data:
-            reg = res_busca.data[0]
-            registro_id = reg['id']
+            for r in res_busca.data:
+                if r.get('ativo') is True:
+                    registro_valido = r
+                    break
+        
+        if registro_valido:
+            registro_id = registro_valido['id']
             
-            # 2. Simulação para Recálculo
-            reg_simulado = reg.copy()
+            # 2. Simulação para Recálculo seguro contra None (Nulls do banco)
+            reg_simulado = registro_valido.copy()
             reg_simulado[coluna_banco] = novo_valor
+
+            # Função lambda para converter nulos/None vindos do banco em 0.00
+            def f_val(val):
+                return float(val) if val is not None else 0.0
 
             # Soma Conferências (Entradas)
             t_c_ent = (
-                reg_simulado.get('conf_cartao', 0) + reg_simulado.get('conf_crediario', 0) + 
-                reg_simulado.get('conf_dinheiro', 0) + reg_simulado.get('conf_boleto', 0) + 
-                reg_simulado.get('conf_ifood', 0) + reg_simulado.get('conf_pbm', 0) + 
-                reg_simulado.get('conf_pix', 0) + reg_simulado.get('conf_vale_compra', 0) + 
-                reg_simulado.get('conf_fapp', 0) + reg_simulado.get('conf_vlink', 0)
+                f_val(reg_simulado.get('conf_cartao')) + f_val(reg_simulado.get('conf_crediario')) + 
+                f_val(reg_simulado.get('conf_dinheiro')) + f_val(reg_simulado.get('conf_boleto')) + 
+                f_val(reg_simulado.get('conf_ifood')) + f_val(reg_simulado.get('conf_pbm')) + 
+                f_val(reg_simulado.get('conf_pix')) + f_val(reg_simulado.get('conf_vale_compra')) + 
+                f_val(reg_simulado.get('conf_fapp')) + f_val(reg_simulado.get('conf_vlink'))
             )
 
             # Soma Saídas
             t_c_sai = (
-                reg_simulado.get('conf_despesa', 0) + reg_simulado.get('conf_vale_func', 0) + 
-                reg_simulado.get('conf_dev_cartao', 0) + reg_simulado.get('conf_outros', 0)
+                f_val(reg_simulado.get('conf_despesa')) + f_val(reg_simulado.get('conf_vale_func')) + 
+                f_val(reg_simulado.get('conf_dev_cartao')) + f_val(reg_simulado.get('conf_outros'))
             )
 
             # Soma Sistema
             t_s_ent = (
-                reg_simulado.get('sis_cartao', 0) + reg_simulado.get('sis_crediario', 0) + 
-                reg_simulado.get('sis_dinheiro', 0) + reg_simulado.get('sis_boleto', 0) + 
-                reg_simulado.get('sis_ifood', 0) + reg_simulado.get('sis_pbm', 0) + 
-                reg_simulado.get('sis_pix', 0) + reg_simulado.get('sis_vale_compra', 0) + 
-                reg_simulado.get('sis_fapp', 0) + reg_simulado.get('sis_vlink', 0)
+                f_val(reg_simulado.get('sis_cartao')) + f_val(reg_simulado.get('sis_crediario')) + 
+                f_val(reg_simulado.get('sis_dinheiro')) + f_val(reg_simulado.get('sis_boleto')) + 
+                f_val(reg_simulado.get('sis_ifood')) + f_val(reg_simulado.get('sis_pbm')) + 
+                f_val(reg_simulado.get('sis_pix')) + f_val(reg_simulado.get('sis_vale_compra')) + 
+                f_val(reg_simulado.get('sis_fapp')) + f_val(reg_simulado.get('sis_vlink'))
             )
 
-            # Recálculo: (Dinheiro + Despesas) - Sistema
+            # Recálculo exato idêntico ao do fechamento: (Entradas Conferidas + Saídas) - Sistema
             nova_quebra = round((t_c_ent + t_c_sai) - t_s_ent, 2)
 
             # 3. Preparação do Update
@@ -109,6 +121,6 @@ def renderizar_tela(supabase, user):
                 st.success(f"✅ Campo '{item_selecionado}' atualizado. Nova Quebra: R$ {nova_quebra:,.2f}")
                 st.cache_data.clear()
             else:
-                st.error("Erro ao atualizar. Verifique a conexão ou se o campo existe no banco.")
+                st.error("Erro ao atualizar. Verifique a conexão ou as políticas de escrita (RLS).")
         else:
-            st.warning("⚠️ Lançamento não encontrado para esta data.")
+            st.warning("⚠️ Lançamento ativo não encontrado para esta data.")
