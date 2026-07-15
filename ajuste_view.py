@@ -3,7 +3,7 @@ import database_utils as db
 from datetime import date
 
 def renderizar_tela(supabase, user):
-    st.title("⚙️ Ajuste de Lançamentos")
+    st.title("⚙️ Ajuste de Lançamentos 2")
     st.markdown("Esta tela permite corrigir valores específicos e recalcula o saldo de quebra automaticamente.")
 
     # --- 1. SELEÇÃO DE LOJA E DATA ---
