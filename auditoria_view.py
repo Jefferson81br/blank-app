@@ -147,11 +147,60 @@ def renderizar_tela(supabase, user):
                 st.info(d['observacoes'] if d['observacoes'] else "Nenhuma observação.")
                 
                 st.markdown("**🖼️ Anexos Atuais:**")
-                if d.get('urls_prints'):
-                    cols_img = st.columns(2)
-                    for idx, url in enumerate(d['urls_prints']):
-                        with cols_img[idx % 2]: st.image(url, use_container_width=True)
-                else: st.warning("Sem comprovantes.")
+                urls_atuais = d.get('urls_prints', [])
+                if urls_atuais:
+                    for idx, url in enumerate(urls_atuais):
+                        # Linha com imagem/botão e coluna de remoção
+                        col_anexo, col_excluir = st.columns([5, 1])
+                        
+                        with col_anexo:
+                            # Thumbnail ou link direto para expandir
+                            st.image(url, use_container_width=True)
+                            
+                        with col_excluir:
+                            st.write("<br>" * 2, unsafe_allow_html=True) # Alinha o botão verticalmente com o topo da imagem
+                            
+                            # Botão de exclusão com confirmação em tempo de execução
+                            if st.button("🗑️", key=f"btn_excluir_{idx}", help="Excluir este comprovante permanentemente"):
+                                # Grava no session_state para solicitar confirmação
+                                st.session_state.confirmar_exclusao_idx = idx
+                        
+                        # Bloco de confirmação de segurança logo abaixo da imagem em foco
+                        if st.session_state.get('confirmar_exclusao_idx') == idx:
+                            st.warning("⚠️ **A exclusão deste comprovante é irreversível!**")
+                            col_conf_sim, col_conf_nao = st.columns(2)
+                            
+                            if col_conf_sim.button("Sim, Excluir", key=f"conf_sim_{idx}", type="primary", use_container_width=True):
+                                with st.spinner("Excluindo arquivo do servidor..."):
+                                    try:
+                                        # 1. Extrai o caminho relativo do arquivo no bucket
+                                        if "comprovantes/" in url:
+                                            caminho_relativo = url.split("comprovantes/")[-1]
+                                            # Remove o arquivo do Storage
+                                            supabase.storage.from_("comprovantes").remove([caminho_relativo])
+                                        
+                                        # 2. Atualiza a lista filtrando fora o arquivo deletado
+                                        nova_lista = [u for u in urls_atuais if u != url]
+                                        
+                                        # 3. Atualiza o registro no banco
+                                        supabase.table("fechamentos")\
+                                            .update({"urls_prints": nova_lista})\
+                                            .eq("id", d['id'])\
+                                            .execute()
+                                            
+                                        st.success("Anexo removido com sucesso!")
+                                        del st.session_state.confirmar_exclusao_idx
+                                        time.sleep(1)
+                                        st.rerun()
+                                    except Exception as err:
+                                        st.error(f"Erro ao remover: {err}")
+                                        
+                            if col_conf_nao.button("Cancelar", key=f"conf_nao_{idx}", use_container_width=True):
+                                del st.session_state.confirmar_exclusao_idx
+                                st.rerun()
+                        st.write("---")
+                else: 
+                    st.warning("Sem comprovantes.")
 
                 st.markdown("---")
                 with st.expander("➕ Adicionar Comprovantes Esquecidos"):
@@ -159,7 +208,6 @@ def renderizar_tela(supabase, user):
                     if st.button("Subir e Salvar Anexos", use_container_width=True):
                         if novos_arquivos:
                             with st.spinner('Fazendo upload...'):
-                                urls_atuais = d.get('urls_prints', [])
                                 if urls_atuais is None: urls_atuais = []
                                 
                                 novas_urls = []
@@ -170,7 +218,7 @@ def renderizar_tela(supabase, user):
                                     url_publica = supabase.storage.from_("comprovantes").get_public_url(path)
                                     novas_urls.append(url_publica)
                                 
-                                lista_final = urls_atuais + novas_urls
+                                lista_final = list(urls_atuais) + novas_urls
                                 if db.atualizar_auditoria(supabase, d['id'], {"urls_prints": lista_final}):
                                     st.success("Anexos adicionados!")
                                     time.sleep(1)
