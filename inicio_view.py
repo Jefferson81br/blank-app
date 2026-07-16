@@ -1,47 +1,42 @@
 import streamlit as st
 
 def renderizar_tela(supabase, user):
-    # Cabeçalho com Estilo Atualizado para v1.3
+    # Cabeçalho com Estilo Atualizado para v1.4
     st.markdown(f"""
         <div style="background-color: #1e1e1e; padding: 20px; border-radius: 15px; border-left: 8px solid #00ff00; margin-bottom: 25px;">
-            <h1 style="margin:0; color: white;">🏠 Farma Gestor 1.3</h1>
+            <h1 style="margin:0; color: white;">🏠 Farma Gestor 1.4</h1>
             <p style="font-size: 18px; color: #aaa;">Bem-vindo(a), <b>{user['nome']}</b>! Este é o seu painel central de controle.</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # --- NOVO: CHANGE LOG DA VERSÃO 1.3 (CORRIGIDO) ---
-    with st.expander("🚀 NOVIDADES DA VERSÃO 1.3", expanded=True):
-        # Usando Markdown puro para as listas para evitar erros de renderização de HTML
-        st.markdown("#### ⚖️ Tela de Auditoria: Monitoramento Duplo")
-        st.write("Agora, os botões de data contam com um sistema de **Indicadores Duplos** para facilitar a identificação de pendências:")
+    # --- NOVIDADES DA VERSÃO 1.4 ---
+    with st.expander("🚀 NOVIDADES DA VERSÃO 1.4", expanded=True):
+        st.markdown("#### 📋 Relatórios Expandidos e Exportação em PDF")
+        st.write("O módulo de relatórios foi totalmente refinado para dar maior poder de análise e conformidade:")
         
-        # Caixa de Legenda usando uma única string HTML para evitar quebra de código
-        legenda_html = """
+        # Caixa informativa sobre a exportação
+        exportacao_html = """
         <div style="background-color: #262626; padding: 15px; border-radius: 10px; border: 1px solid #333; margin: 10px 0; color: white;">
-            <p style="margin-bottom: 8px;"><b>📍 1º Marcador (Status Global):</b></p>
-            <ul style="margin-top:0;">
-                <li>🟡 <b>Pendente:</b> Lançamento ainda não auditado.</li>
-                <li>✅ <b>Auditado:</b> Conferência financeira finalizada.</li>
+            <ul style="margin:0; padding-left: 20px;">
+                <li><b>Visualização Completa:</b> Exibição de todas as colunas de conferência do caixa (Cartão, Crediário, Dinheiro, Boleto, Ifood, PBM, Pix, VC, FAPP, Vlink, Total, Despesas, Quebra e Auditoria).</li>
+                <li><b>Exportação em PDF Executivo:</b> Geração nativa de arquivos PDF em modo paisagem, contendo rodapé assinado com data, hora e o nome do usuário que emitiu o relatório.</li>
+                <li><b>Segurança por Filial:</b> Filtros de busca bloqueados automaticamente para gerentes, permitindo apenas a consulta da sua própria unidade.</li>
             </ul>
-            <p style="margin-bottom: 8px;"><b>📍 2º Marcador (Integridade Documental):</b></p>
-            <ul style="margin-top:0;">
-                <li>✅ <b>Completo:</b> Todos os 3 comprovantes (Sistema, Depósito e Despesas) conferidos.</li>
-                <li>🟡 <b>Pendência:</b> Falta o check em pelo menos um dos comprovantes obrigatórios.</li>
-            </ul>
-            <p style="margin-top: 10px; font-size: 14px; color: #aaa;">
-                <i>Exemplo: <b>✅🟡</b> significa que o dia foi auditado, mas ainda possui pendência de documentação.</i>
-            </p>
         </div>
         """
-        st.markdown(legenda_html, unsafe_allow_html=True)
+        st.markdown(exportacao_html, unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown("#### ➕ Autonomia do Auditor")
-        st.write("O Auditor agora pode **incluir anexos extras** (esquecidos pelo gerente) diretamente na tela de auditoria, sem precisar inativar o lançamento.")
-        
+        st.markdown("#### 🗑️ Gestão de Comprovantes na Auditoria")
+        st.write("Agora o Auditor tem a possibilidade de **excluir anexos incorretos ou duplicados** enviados por engano pelos gerentes. A operação conta com confirmação dupla de segurança e remove o arquivo permanentemente do servidor.")
+
         st.markdown("---")
-        st.markdown("#### 📋 Filtros Avançados em Relatórios")
-        st.write("Além de loja e período, agora é possível extrair relatórios filtrando por **Status da Auditoria** ou **Integridade dos Comprovantes**.")
+        st.markdown("#### ⚙️ Ajustes Financeiros Robustos contra Nulos")
+        st.write("O módulo de Ajustes Administrativos foi blindado contra campos sem preenchimento (`NULL`) e recebeu o mapeamento completo das saídas, incluindo a coluna de **Outros** no recálculo automático de saldo de quebras.")
+
+        st.markdown("---")
+        st.markdown("#### 🛡️ Segurança de Login & Correção de Bugs")
+        st.write("A aplicação foi protegida contra o cenário de Gerentes cadastrados sem loja vinculada (que causava o travamento da tela preta). O sistema agora detecta a inconsistência no login, bloqueia a tela com um aviso amigável e orienta o usuário a procurar o suporte administrativo.")
 
     st.markdown("### ℹ️ Guia de Utilização do Sistema")
     st.write("Selecione o seu perfil abaixo para entender as funcionalidades disponíveis:")
@@ -68,13 +63,13 @@ def renderizar_tela(supabase, user):
                 **Gestão Estrutural:**
                 * **👥 Usuários:** Criar, excluir e resetar senhas da equipe.
                 * **🏢 Lojas:** Gerenciar o cadastro das unidades da rede.
-                * **📋 Relatórios:** Extração de dados consolidados com novos filtros.
+                * **📋 Relatórios:** Extração de dados consolidados com novos filtros e exportação em PDF.
                 """)
             with col2:
                 st.markdown("""
                 **Controle Financeiro:**
-                * **🔍 Auditoria:** Conferência diária dos lançamentos.
-                * **🛠️ Correções:** Adicionar documentos ou inativar registros.
+                * **🔍 Auditoria:** Conferência diária de lançamentos com permissão de exclusão de mídias.
+                * **🛠️ Correções:** Ajustar valores pontuais e recalcular saldos retroativamente.
                 """)
 
     st.divider()
@@ -82,8 +77,8 @@ def renderizar_tela(supabase, user):
     # Rodapé
     c1, c2 = st.columns([4, 1])
     with c1:
-        st.caption("Versão do Sistema: 1.3.0 | Suporte Técnico: Jefferson Admin")
+        st.caption("Versão do Sistema: 1.4.0 | Suporte Técnico: Jefferson Admin")
     with c2:
         st.info("🚪 **Sair:** Menu lateral.")
 
-    st.warning("**Lembrete de Segurança:** Nunca compartilhe sua senha. Todos os logs são registrados.")
+    st.warning("**Lembrete de Segurança:** O banco de dados opera sob políticas estritas de Row-Level Security (RLS). Mantenha suas credenciais em sigilo.")
