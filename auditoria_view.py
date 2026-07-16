@@ -5,7 +5,7 @@ import database_utils as db
 import time
 
 def renderizar_tela(supabase, user):
-    st.title("⚖️ Auditoria de Fechamentos")
+    st.title("⚖️ Auditoria de Fechamentos 2")
 
     # --- 1. SELEÇÃO DA UNIDADE (FILTRO PRINCIPAL) ---
     lojas_res = db.buscar_lojas(supabase)
