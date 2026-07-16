@@ -1,7 +1,7 @@
 import streamlit as st
 
 def renderizar_tela(supabase, user):
-    # Cabeçalho com Estilo Atualizado para v1.4
+    # Cabeçalho com Estilo Atualizado v1.3 para v1.4
     st.markdown(f"""
         <div style="background-color: #1e1e1e; padding: 20px; border-radius: 15px; border-left: 8px solid #00ff00; margin-bottom: 25px;">
             <h1 style="margin:0; color: white;">🏠 Farma Gestor 1.4</h1>
