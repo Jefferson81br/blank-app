@@ -19,7 +19,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 # --- CONFIGURAÇÃO DE PÁGINA ---
-st.set_page_config(page_title="Farma Gestor 1.3", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Farma Gestor 1.4", layout="wide", initial_sidebar_state="expanded")
 
 # --- CSS PERSONALIZADO ---
 st.markdown("""
