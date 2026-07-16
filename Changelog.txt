@@ -8,58 +8,58 @@
 ## 1. 🚀 NOVIDADES DA VERSÃO 1.4 (VERSÃO ESTÁVEL)
 
 ### 📋 TELA DE RELATÓRIOS (EXPANSÃO & EXPORTAÇÃO AVANÇADA)
-- [cite_start]**Visualização Completa de Dados:** Grade de dados expandida para apresentar todas as colunas de movimentação financeira real: Data, Unidade, Cartão, Crediário, Dinheiro, Boleto, Ifood, PBM, Pix, VC (Vale Compra), FAPP, Vlink, Total, Despesas, Quebra, Auditado e Comprovantes.
-- [cite_start]**Coluna de Totalização Dinâmica:** Implementação do cálculo matemático horizontal em tempo de execução para exibir o valor total conferido do dia[cite: 43].
-- [cite_start]**Módulo de Exportação Nativa em PDF:** Adicionada a funcionalidade para gerar e baixar relatórios estruturados em formato PDF (modo paisagem/landscape), contendo paginação automática e estilização executiva limpa via ReportLab[cite: 44].
-- [cite_start]**Rodapé de Auditoria e Assinatura:** Inclusão automática no rodapé de cada página do PDF da data por extenso, hora da emissão e o nome do usuário responsável por gerar o relatório[cite: 45].
-- [cite_start]**Isolamento de Segurança por Filial (Acesso do Gerente):** Adaptação lógica estruturada que oculta o seletor de lojas para perfis de nível Gerente, travando o escopo de visualização e exportação estritamente nos dados da sua respectiva unidade[cite: 46].
+- **Visualização Completa de Dados:** Grade de dados expandida para apresentar todas as colunas de movimentação financeira real: Data, Unidade, Cartão, Crediário, Dinheiro, Boleto, Ifood, PBM, Pix, VC (Vale Compra), FAPP, Vlink, Total, Despesas, Quebra, Auditado e Comprovantes.
+- **Coluna de Totalização Dinâmica:** Implementação do cálculo matemático horizontal em tempo de execução para exibir o valor total conferido do dia.
+- **Módulo de Exportação Nativa em PDF:** Adicionada a funcionalidade para gerar e baixar relatórios estruturados em formato PDF (modo paisagem/landscape), contendo paginação automática e estilização executiva limpa via ReportLab.
+- **Rodapé de Auditoria e Assinatura:** Inclusão automática no rodapé de cada página do PDF da data por extenso, hora da emissão e o nome do usuário responsável por gerar o relatório.
+- **Isolamento de Segurança por Filial (Acesso do Gerente):** Adaptação lógica estruturada que oculta o seletor de lojas para perfis de nível Gerente, travando o escopo de visualização e exportação estritamente nos dados da sua respectiva unidade.
 
 ### ⚖️ TELA DE AUDITORIA (CONTROLE DE ANEXOS)
 - **Exclusão de Comprovantes com Layout Compacto:** Implementação do botão "🗑️ Excluir" integrado individualmente a cada comprovante exibido. A operação remove o arquivo permanentemente do Storage do Supabase e atualiza a tabela de fechamentos no banco de dados.
 - **Prevenção de Scroll Excessivo:** Distribuição inteligente dos anexos mantendo o formato original de duas colunas paralelas lado a lado, prevenindo rolagem exaustiva de página para o auditor.
 - **Confirmação Dupla de Segurança:** Inclusão de caixas de diálogo de confirmação localizadas logo abaixo do comprovante selecionado, alertando sobre a irreversibilidade do processo de exclusão.
 
-### ⚙️ MÓDULO DE AJUSTES ADMINISTRATIVOS (ESTABILIDADE FINANCIAL)
+### ⚙️ MÓDULO DE AJUSTES ADMINISTRATIVOS (ESTABILIDADE FINANCEIRA)
 - **Tratamento Seguro de Valores Nulos (Anti-Crash):** O motor de recálculo foi blindado para converter registros vazios (`NULL` do banco de dados) em `0.00` no Python, eliminando erros matemáticos de tipo no momento de salvar.
 - **Mapeamento Completo de Saídas:** Inclusão da coluna de saídas "Outros" (`conf_outros`) na simulação e no recálculo automático da quebra do dia, cobrindo todos os eixos de divergências possíveis.
 
 ### 📝 TELA DE LANÇAMENTO DIÁRIO & SEGURANÇA DE INTERFACE
-- [cite_start]**Tratamento de Consistência de Perfil (Anti-Tela Preta):** Implementação de uma trava de segurança estrita que verifica no carregamento do sistema se o Gerente possui uma loja associada[cite: 47]. [cite_start]Caso o campo esteja nulo (`None`), a renderização é interrompida de forma limpa, substituindo a quebra de tela por um alerta informativo em destaque para o usuário[cite: 48].
+- **Tratamento de Consistência de Perfil (Anti-Tela Preta):** Implementação de uma trava de segurança estrita que verifica no carregamento do sistema se o Gerente possui uma loja associada. Caso o campo esteja nulo (`None`), a renderização é interrompida de forma limpa, substituindo a quebra de tela por um alerta informativo em destaque para o usuário.
 
 ---
 
 ## 2. 💎 RECAPITULATIVO DA VERSÃO 1.3
 
 ### ⚖️ TELA DE AUDITORIA (UX & MONITORAMENTO)
-- [cite_start]**Sistema de Monitoramento Duplo:** Implementação de indicadores visuais duplos nos botões de seleção de data[cite: 49].
-    - [cite_start]*1º Marcador (Status Global):* Reflete o status de auditoria (✅ Auditado | 🟡 Pendente)[cite: 50].
-    - [cite_start]*2º Marcador (Integridade Documental):* Validação lógica automática que fica verde (✅) apenas se os comprovantes de Sistema, Depósito e Despesas estiverem marcados como True[cite: 51].
-- [cite_start]**Anexos Extras em Tempo Real:** Adicionada funcionalidade para o auditor realizar upload de comprovantes esquecidos diretamente na visualização, sem necessidade de inativar o registro[cite: 52].
-- [cite_start]**Legenda Visual:** Inclusão de banner informativo detalhando o significado dos novos ícones de monitoramento[cite: 53].
+- **Sistema de Monitoramento Duplo:** Implementação de indicadores visuais duplos nos botões de seleção de data.
+    - *1º Marcador (Status Global):* Reflete o status de auditoria (✅ Auditado | 🟡 Pendente).
+    - *2º Marcador (Integridade Documental):* Validação lógica automática que fica verde (✅) apenas se os comprovantes de Sistema, Depósito e Despesas estiverem marcados como True.
+- **Anexos Extras em Tempo Real:** Adicionada funcionalidade para o auditor realizar upload de comprovantes esquecidos diretamente na visualização, sem necessidade de inativar o registro.
+- **Legenda Visual:** Inclusão de banner informativo detalhando o significado dos novos ícones de monitoramento.
 
 ### ⚙️ MÓDULO DE AJUSTES ADMINISTRATIVOS
-- [cite_start]**Nova Tela de Ajuste:** Criada interface para correções pontuais em campos de sistema ou conferência[cite: 54].
-- [cite_start]**Motor de Recálculo Automático:** O sistema recalcula o valor da quebra instantaneamente após qualquer alteração manual, garantindo a integridade dos saldos financeiros[cite: 55].
+- **Nova Tela de Ajuste:** Criada interface para correções pontuais em campos de sistema ou conferência.
+- **Motor de Recálculo Automático:** O sistema recalcula o valor da quebra instantaneamente após qualquer alteração manual, garantindo a integridade dos saldos financeiros.
 
 ---
 
 ## 3. 🛡️ ARQUITETURA DE DADOS & BACKEND (V1.2)
-- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). [cite_start]Registros invalidados recebem `False`, preservando o rastro de auditoria[cite: 56, 57].
-- [cite_start]**Segurança de Duplicidade:** O sistema valida apenas lançamentos ativos, impedindo duplicidade no mesmo dia/loja, mas permitindo reenvio se o anterior for inativado[cite: 57].
-- [cite_start]**Novos Campos de Auditoria:** Adicionadas colunas `check_sistema`, `check_deposito` e `check_despesas` (Boolean) na tabela `fechamentos`[cite: 58].
-- [cite_start]**Geração de URLs de Imagem:** Integração com o bucket `comprovantes` do Supabase para exibição dinâmica de anexos via URL pública[cite: 59].
-- [cite_start]**UX de Sucesso:** Implementação de feedbacks dinâmicos (`st.balloons()` e `time.sleep(2)`) após o salvamento de lançamentos[cite: 60].
-- [cite_start]**Histórico de Feedbacks:** Expandido para exibir até 5 feedbacks recentes na tela do gerente[cite: 61].
+- **Implementação de Soft Delete (Exclusão Lógica):** Adicionada a coluna `ativo` (Boolean, default: True). Registros invalidados recebem `False`, preservando o rastro de auditoria.
+- **Segurança de Duplicidade:** O sistema valida apenas lançamentos ativos, impedindo duplicidade no mesmo dia/loja, mas permitindo reenvio se o anterior for inativado.
+- **Novos Campos de Auditoria:** Adicionadas colunas `check_sistema`, `check_deposito` e `check_despesas` (Boolean) na tabela `fechamentos`.
+- **Geração de URLs de Imagem:** Integração com o bucket `comprovantes` do Supabase para exibição dinâmica de anexos via URL pública.
+- **UX de Sucesso:** Implementação de feedbacks dinâmicos (`st.balloons()` e `time.sleep(2)`) após o salvamento de lançamentos.
+- **Histórico de Feedbacks:** Expandido para exibir até 5 feedbacks recentes na tela do gerente.
 
 ---
 
 ## 🛠️ FUNÇÕES ATUALIZADAS (DATABASE_UTILS.PY)
-- [cite_start]`salvar_fechamento`: Inicializa os registros no banco com o status `ativo: True`[cite: 62].
-- [cite_start]`buscar_fechamento_multiplas_lojas` / `buscar_fechamento_por_data`: Otimizadas com filtragem global `.eq("ativo", True)` e suporte a filtros de status[cite: 63].
-- [cite_start]`inativar_registro`: Nova função responsável por realizar o "Soft Delete" via operação UPDATE[cite: 64].
-- [cite_start]`atualizar_auditoria`: Atualizada para processar os checkboxes de conferência e recálculos automáticos de quebras[cite: 65].
+- `salvar_fechamento`: Inicializa os registros no banco com o status `ativo: True`.
+- `buscar_fechamento_multiplas_lojas` / `buscar_fechamento_por_data`: Otimizadas com filtragem global `.eq("ativo", True)` e suporte a filtros de status.
+- `inativar_registro`: Nova função responsável por realizar o "Soft Delete" via operação UPDATE.
+- `atualizar_auditoria`: Atualizada para processar os checkboxes de conferência e recálculos automáticos de quebras.
 
 ---
 **Próximos Passos Sugeridos:**
-- [cite_start]Criar automação via n8n para disparo diário de resumos de fechamentos e rotinas de backup programado[cite: 67].
+- Criar automação via n8n para disparo diário de resumos de fechamentos e rotinas de backup programado.
 - Implementar alertas push automáticos no dashboard do Gerente quando uma auditoria for marcada como Pendente com réplicas inseridas.
