@@ -87,13 +87,13 @@ def renderizar_tela(supabase, user):
                 f_val(reg_simulado.get('conf_fapp')) + f_val(reg_simulado.get('conf_vlink'))
             )
 
-            # Soma Saídas
+            # Soma Saídas (Despesas/Vales diminuem o caixa conferido líquido)
             t_c_sai = (
                 f_val(reg_simulado.get('conf_despesa')) + f_val(reg_simulado.get('conf_vale_func')) + 
                 f_val(reg_simulado.get('conf_dev_cartao')) + f_val(reg_simulado.get('conf_outros'))
             )
 
-            # Soma Sistema
+            # Soma Sistema (Vendas registradas)
             t_s_ent = (
                 f_val(reg_simulado.get('sis_cartao')) + f_val(reg_simulado.get('sis_crediario')) + 
                 f_val(reg_simulado.get('sis_dinheiro')) + f_val(reg_simulado.get('sis_boleto')) + 
@@ -102,8 +102,8 @@ def renderizar_tela(supabase, user):
                 f_val(reg_simulado.get('sis_fapp')) + f_val(reg_simulado.get('sis_vlink'))
             )
 
-            # Recálculo exato idêntico ao do fechamento: (Entradas Conferidas + Saídas) - Sistema
-            nova_quebra = round((t_c_ent + t_c_sai) - t_s_ent, 2)
+            # CORREÇÃO DA FÓRMULA: (Entradas Conferidas - Saídas/Justificativas) - Vendas do Sistema
+            nova_quebra = round((t_c_ent - t_c_sai) - t_s_ent, 2)
 
             # 3. Preparação do Update
             dados_update = {
